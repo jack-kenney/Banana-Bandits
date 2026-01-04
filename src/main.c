@@ -11,7 +11,7 @@ surface_t *depthBuffer;
 T3DViewport viewport;
 rdpq_font_t *font;
 rdpq_font_t *fontBillboard;
-T3DMat4FP* mapMatFP;
+T3DMat4FP *mapMatFP;
 rspq_block_t *dplMap;
 T3DModel *model;
 T3DModel *modelShadow;
@@ -21,7 +21,32 @@ T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 
+typedef struct {
+    T3DVec3 moveDir;
+    T3DVec3 playerPos;
+    float currSpeed;
+    float rotY;
+    rspq_block_t *dplPlayer;
+    T3DMat4FP *modelMatFP;
+} Player;
+
+Player player1;
+
 rspq_syncpoint_t syncPoint;
+
+void player_init(Player *player)
+{
+    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
+    player->moveDir = (T3DVec3){{0,0,0}};
+    player->playerPos = (T3DVec3){{0,0,0}};
+    player->currSpeed = 0.0f;
+    player->rotY = 0.0f;
+    rspq_block_begin();
+        t3d_matrix_push(player->modelMatFP);
+        t3d_model_draw(modelCrystal); // as in the last example, draw skinned with the main skeleton
+        t3d_matrix_pop(1);
+    player->dplPlayer = rspq_block_end();
+}
 
 void game_init()
 {
@@ -38,13 +63,56 @@ void game_init()
     t3d_vec3_norm(&lightDirVec);
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
-    modelShadow = t3d_model_load("rom:/shadow.t3dm");
+    //modelShadow = t3d_model_load("rom:/shadow.t3dm");
     modelCrystal = t3d_model_load("rom:/cube.t3dm");
     rspq_block_begin();
-    t3d_model_draw(modelShadow);
-    t3d_model_draw(modelCrystal);
+    //t3d_model_draw(modelShadow);
+    //t3d_model_draw(modelCrystal);
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
+}
+
+
+void player_movement(Player *player, joypad_port_t port) 
+{
+    float speed = 0.0f;
+    T3DVec3 newDir = {0};
+    joypad_inputs_t joypad = joypad_get_inputs(port);
+
+    newDir.v[0] = (float)joypad.stick_x * 0.05f;
+    newDir.v[2] = -(float)joypad.stick_y * 0.05f;
+    speed = sqrtf(t3d_vec3_len2(&newDir));
+
+    if(speed > 0.15f) 
+    {
+        newDir.v[0] /= speed;
+        newDir.v[2] /= speed;
+        player->moveDir = newDir;
+
+        float newAngle = atan2f(player->moveDir.v[0], player->moveDir.v[2]);
+        player->rotY = t3d_lerp_angle(player->rotY, newAngle, 0.5f);
+        player->currSpeed = t3d_lerp(player->currSpeed, speed * 0.3f, 0.15f);
+    } 
+    else 
+    {
+    player->currSpeed *= 0.64f;
+    } 
+    // Move player
+    player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
+    player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
+    // ...and limit position inside the box
+    const float BOX_SIZE = 140.0f;
+    if(player->playerPos.v[0] < -BOX_SIZE)player->playerPos.v[0] = -BOX_SIZE;
+    if(player->playerPos.v[0] >  BOX_SIZE)player->playerPos.v[0] =  BOX_SIZE;
+    if(player->playerPos.v[2] < -BOX_SIZE)player->playerPos.v[2] = -BOX_SIZE;
+    if(player->playerPos.v[2] >  BOX_SIZE)player->playerPos.v[2] =  BOX_SIZE;
+
+      // Update player matrix
+    t3d_mat4fp_from_srt_euler(player->modelMatFP,
+    (float[3]){0.125f, 0.125f, 0.125f},
+    (float[3]){0.0f, -player->rotY, 0},
+    player->playerPos.v
+  );
 }
 
 int main(void)
@@ -54,53 +122,26 @@ int main(void)
     //debug_init_usblog();
     //console_set_debug(true);
 
-    //printf("\n\n\n\n\n                 Lick my balls!\n");
-    //printf("\n\n\n\n\n                 Thank you for reading this story.\n");
+
     asset_init_compression(2);
     asset_init_compression(3);
-    //int res = dfs_init(DFS_DEFAULT_LOCATION);
-    //if (res < 0) return 0;
+
     debug_init_usblog();
     debug_init_isviewer();
     console_set_debug(true);
-    //debugf("DFS init result: %d\n", res);
     joypad_init();
     timer_init();
     rdpq_init();
     audio_init(32000, 3);
     mixer_init(32);
     game_init();
-
+    player_init(&player1);
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
-    joypad_inputs_t inputs;
     while(1) {
         joypad_poll();
-        inputs = joypad_get_inputs(JOYPAD_PORT_1);
-        if (inputs.stick_x > 15){
-            camTarget.x += 5.0f;
-            if(inputs.btn.z) camPos.x += 5.0f;
-        }
-        if (inputs.stick_x < -15){
-            camTarget.x -= 5.0f;
-            if(inputs.btn.z) camPos.x -= 5.0f;
-        }
-        if(inputs.stick_y < -15){
-            camTarget.z += 5.0f;
-            camPos.z += 5.0f;
-        }
-        if(inputs.stick_y > 15){
-            camTarget.z -= 5.0f;
-            camPos.z -= 5.0f;
-        }
-        if(inputs.btn.c_right){
-            camPos.y += 5.0f;
-            camTarget.y += 5.0f;
-        }
-        if(inputs.btn.c_left){
-            camPos.y -= 5.0f;
-            camTarget.y -= 5.0f;
-        }
+        player_movement(&player1, JOYPAD_PORT_1);
+
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -115,6 +156,7 @@ int main(void)
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
 
+        rspq_block_run(player1.dplPlayer);  
         rspq_block_run(dplMap);
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
