@@ -26,6 +26,8 @@ T3DVec3 lightDirVec;
 
 typedef struct {
     T3DVec3 moveDir;
+    bool alive;
+    bool attacking;
     T3DVec3 playerPos;
     float currSpeed;
     float rotY;
@@ -35,18 +37,20 @@ typedef struct {
     T3DMat4FP *modelMatFP;
 } Player;
 
-Player player1;
+Player players[4];
 
 rspq_syncpoint_t syncPoint;
 
-void player_init(Player *player)
+void player_init(Player *player,  T3DVec3 position)
 {
     player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
     player->moveDir = (T3DVec3){{0,0,0}};
-    player->playerPos = (T3DVec3){{0,0,0}};
+    player->playerPos = position;
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
     player->jumpFrame = 0;
+    player->alive = true;
+    player->attacking = false;
     rspq_block_begin();
         t3d_matrix_push(player->modelMatFP);
         t3d_model_draw(modelCrystal); // as in the last example, draw skinned with the main skeleton
@@ -70,13 +74,33 @@ void game_init()
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     //modelShadow = t3d_model_load("rom:/shadow.t3dm");
-    modelCrystal = t3d_model_load("rom:/cube.t3dm");
+    modelCrystal = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();
     //t3d_model_draw(modelShadow);
     //t3d_model_draw(modelCrystal);
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
 }
+
+void collision_detect(Player *player)
+{
+    for(int i = 0; i < 4; i++)
+    {
+        if(player != &players[i])
+        {
+            float diff = t3d_vec3_distance(&player->playerPos, &players[i].playerPos);
+            if(diff < 10.0f)
+            {
+                if(player->attacking)
+                {
+                    players[i].alive = false;
+                }
+
+            }
+        }
+    }
+}
+
 
 
 void player_movement(Player *player, joypad_port_t port) 
@@ -114,11 +138,16 @@ void player_movement(Player *player, joypad_port_t port)
     if(player->playerPos.v[2] < -BOX_SIZE)player->playerPos.v[2] = -BOX_SIZE;
     if(player->playerPos.v[2] >  BOX_SIZE)player->playerPos.v[2] =  BOX_SIZE;
 
+    collision_detect(player);
+
       // Update player matrix
     t3d_mat4fp_from_srt_euler(player->modelMatFP,
     (float[3]){0.125f, 0.125f, 0.125f},
     (float[3]){0.0f, -player->rotY, 0},
     player->playerPos.v);
+
+    if(joypad.btn.b) player->attacking = true;
+    else player->attacking = false;
 
     if(joypad.btn.a) player->asc = true;
 
@@ -138,6 +167,16 @@ void player_movement(Player *player, joypad_port_t port)
     {
         player->playerPos.v[1] -= JUMP_HEIGHT;
         player->jumpFrame--; 
+    }
+
+    if(joypad.btn.c_right)
+    {
+        camPos.v[1] += 2.0f;
+    }
+
+    if(joypad.btn.c_left)
+    {
+        camPos.v[1] -= 2.0f;
     }
 }
 
@@ -161,13 +200,18 @@ int main(void)
     audio_init(32000, 3);
     mixer_init(32);
     game_init();
-    player_init(&player1);
+    player_init(&players[0],(T3DVec3){{-100,0.15f,0}});
+    player_init(&players[1],(T3DVec3){{0,0.15f,-100}});
+    player_init(&players[2],(T3DVec3){{100,0.15f,0}});
+    player_init(&players[3],(T3DVec3){{0,0.15f,100}});
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
     while(1) {
         joypad_poll();
-        player_movement(&player1, JOYPAD_PORT_1);
-
+        player_movement(&players[0], JOYPAD_PORT_1);
+        player_movement(&players[1], JOYPAD_PORT_2);
+        player_movement(&players[2], JOYPAD_PORT_3);
+        player_movement(&players[3], JOYPAD_PORT_4);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -182,7 +226,13 @@ int main(void)
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
 
-        rspq_block_run(player1.dplPlayer);  
+        for(int i = 0; i < 4; i++)
+        {
+            if(players[i].alive)
+            {
+                rspq_block_run(players[i].dplPlayer);
+            }
+        }
         rspq_block_run(dplMap);
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();

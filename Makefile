@@ -52,7 +52,7 @@ $(FILESYSTEM_DIR)/%.t3dm: $(ASSETS_DIR)/%.glb
 OBJS = $(BUILD_DIR)/main.o
 
 
-hello.z64: N64_ROM_TITLE="Hello World"
+hello.z64: N64_ROM_TITLE="Banana Bandits"
 
 $(BUILD_DIR)/hello.elf: $(OBJS)
 
