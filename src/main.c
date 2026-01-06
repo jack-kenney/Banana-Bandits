@@ -7,7 +7,7 @@
 #include <t3d/t3ddebug.h>
 #include <libdragon.h>
 
-#define JUMP_HEIGHT 12.0f;
+#define JUMP_HEIGHT 12.0f
 
 surface_t *depthBuffer;
 T3DViewport viewport;
@@ -18,11 +18,13 @@ rspq_block_t *dplMap;
 T3DModel *model;
 T3DModel *modelShadow;
 T3DModel *modelMap;
+T3DModel *modelWeapon;
 T3DModel *modelCrystal;
 T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 
+typedef struct Weapon Weapon;
 
 typedef struct {
     T3DVec3 moveDir;
@@ -35,9 +37,22 @@ typedef struct {
     bool asc;
     rspq_block_t *dplPlayer;
     T3DMat4FP *modelMatFP;
+    Weapon *weapon;
+    bool hasWeapon;
 } Player;
 
+struct Weapon {
+    T3DVec3 wepPos;
+    bool equipped;
+    float damage;
+    float rotY;
+    rspq_block_t *dplWeapon;
+    Player *attachedPlayer;
+    T3DMat4FP *modelMatFP;
+}; 
+
 Player players[4];
+Weapon pipe;
 
 rspq_syncpoint_t syncPoint;
 
@@ -51,11 +66,26 @@ void player_init(Player *player,  T3DVec3 position)
     player->jumpFrame = 0;
     player->alive = true;
     player->attacking = false;
+    player->weapon = malloc_uncached(sizeof(Weapon));
     rspq_block_begin();
         t3d_matrix_push(player->modelMatFP);
         t3d_model_draw(modelCrystal); // as in the last example, draw skinned with the main skeleton
         t3d_matrix_pop(1);
     player->dplPlayer = rspq_block_end();
+}
+
+void weapon_init(Weapon *weapon, T3DVec3 position)
+{
+    weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
+    weapon->wepPos = position;
+    weapon->equipped = false;
+    weapon->attachedPlayer = NULL;
+    rspq_block_begin();
+        t3d_matrix_push(weapon->modelMatFP);
+        t3d_model_draw(modelWeapon); // as in the last example, draw skinned with the main skeleton
+        t3d_matrix_pop(1);
+    weapon->dplWeapon = rspq_block_end();
+    //debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
 
 void game_init()
@@ -74,7 +104,11 @@ void game_init()
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     //modelShadow = t3d_model_load("rom:/shadow.t3dm");
+    modelWeapon = t3d_model_load("rom:/pipe.t3dm");
     modelCrystal = t3d_model_load("rom:/banana.t3dm");
+
+    weapon_init(&pipe, (T3DVec3){{0.0f, 0.0f, 0.0f}});
+
     rspq_block_begin();
     //t3d_model_draw(modelShadow);
     //t3d_model_draw(modelCrystal);
@@ -82,8 +116,23 @@ void game_init()
     dplMap = rspq_block_end();
 }
 
+
 void collision_detect(Player *player)
 {
+    float pipeDist = t3d_vec3_distance(&player->playerPos, &pipe.wepPos);
+    //debugf("Distance to pipe: %f\n", pipeDist);
+    if(pipeDist < 15.0f && !player->hasWeapon)
+    {
+        if(!pipe.equipped)
+        {
+            player->weapon->wepPos = pipe.wepPos;
+            player->weapon->damage = pipe.damage;
+            player->hasWeapon = true;
+            pipe.equipped = true;
+            pipe.attachedPlayer = player;
+        }
+    }
+
     for(int i = 0; i < 4; i++)
     {
         if(player != &players[i])
@@ -101,7 +150,22 @@ void collision_detect(Player *player)
     }
 }
 
+void pipe_movement(Weapon *pipe)
+{
+    if(pipe->equipped)
+    {
+        pipe->wepPos.v[0] = pipe->attachedPlayer->playerPos.v[0];
+        pipe->wepPos.v[1] = pipe->attachedPlayer->playerPos.v[1] + 10.0f;
+        pipe->wepPos.v[2] = pipe->attachedPlayer->playerPos.v[2] + 25.0f;
+        pipe->rotY = pipe->attachedPlayer->rotY;    
 
+        t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
+        (float[3]){0.5f, 0.5f, 0.5f},
+        (float[3]){0.0f, -pipe->attachedPlayer->rotY, 0.0f},
+        pipe->wepPos.v);
+    }
+
+}
 
 void player_movement(Player *player, joypad_port_t port) 
 {
@@ -212,6 +276,7 @@ int main(void)
         player_movement(&players[1], JOYPAD_PORT_2);
         player_movement(&players[2], JOYPAD_PORT_3);
         player_movement(&players[3], JOYPAD_PORT_4);
+        pipe_movement(&pipe);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -225,7 +290,7 @@ int main(void)
         t3d_light_set_ambient(colorAmbient);
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
-
+        rspq_block_run(dplMap);
         for(int i = 0; i < 4; i++)
         {
             if(players[i].alive)
@@ -233,7 +298,7 @@ int main(void)
                 rspq_block_run(players[i].dplPlayer);
             }
         }
-        rspq_block_run(dplMap);
+        rspq_block_run(pipe.dplWeapon);
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
