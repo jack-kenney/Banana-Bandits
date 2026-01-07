@@ -8,6 +8,7 @@
 #include <libdragon.h>
 
 #define JUMP_HEIGHT 12.0f
+#define ATK_LENGTH 10.0f
 
 surface_t *depthBuffer;
 T3DViewport viewport;
@@ -23,6 +24,7 @@ T3DModel *modelCrystal;
 T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
+float globalYrot;
 
 typedef struct Weapon Weapon;
 
@@ -39,6 +41,7 @@ typedef struct {
     T3DMat4FP *modelMatFP;
     Weapon *weapon;
     bool hasWeapon;
+    int attackFrame;
 } Player;
 
 struct Weapon {
@@ -49,6 +52,8 @@ struct Weapon {
     rspq_block_t *dplWeapon;
     Player *attachedPlayer;
     T3DMat4FP *modelMatFP;
+    bool isAttack;
+    int attackFrame;
 }; 
 
 Player players[4];
@@ -80,6 +85,10 @@ void weapon_init(Weapon *weapon, T3DVec3 position)
     weapon->wepPos = position;
     weapon->equipped = false;
     weapon->attachedPlayer = NULL;
+    weapon->damage = 10.0f;
+    weapon->isAttack = false;
+    weapon->attackFrame = 0;
+
     rspq_block_begin();
         t3d_matrix_push(weapon->modelMatFP);
         t3d_model_draw(modelWeapon); // as in the last example, draw skinned with the main skeleton
@@ -152,21 +161,23 @@ void collision_detect(Player *player)
 
 void pipe_movement(Weapon *pipe)
 {
+    float attackRotation = 0.0f;
+    float pitch = 0.0f;
     if (pipe->equipped && pipe->attachedPlayer)
     {
         Player *p = pipe->attachedPlayer;
         float angle = p->rotY;
 
-        // right vector based on angle (angle from atan2(move.x, move.z) in your code)
+        // right vector based on angle
         float right_x = cosf(angle);
         float right_z = -sinf(angle);
 
-        // offsets: lateral distance to the right, small forward offset, and vertical offset
+        // offsets
         const float lateral_offset = -10.0f;
         const float forward_offset = 8.0f;
         const float vertical_offset = 10.0f;
 
-        // forward vector (for small forward offset)
+        // forward vector (player facing)
         float forward_x = sinf(angle);
         float forward_z = cosf(angle);
 
@@ -177,17 +188,79 @@ void pipe_movement(Weapon *pipe)
 
         pipe->rotY = p->rotY;
 
-        t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
-            (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){0.0f, -pipe->rotY, 0.0f},
-            pipe->wepPos.v);
+        if(p->attacking)
+        {
+            debugf("Player attack frame: %i\n", p->attackFrame);
+            debugf("Pipe attack frame:   %i\n", pipe->attackFrame);
+            pipe->isAttack = true;
+            if(pipe->attackFrame >= ATK_LENGTH * 2)
+            {
+                pipe->attackFrame = 0;
+                pipe->isAttack = false;
+            }
+            if(pipe->attackFrame < ATK_LENGTH && pipe->isAttack)
+            {
+                pipe->attackFrame += 1;
+                attackRotation = ((T3D_PI / 2) / ATK_LENGTH) * pipe->attackFrame;
+            }
+            else if (pipe->attackFrame >= ATK_LENGTH && pipe->isAttack)
+            {
+                pipe->attackFrame += 1;
+                attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
+            }
+            // pitch forwards during the attack
+            pitch = (- T3D_PI / 2 ) + attackRotation;
+        }
+        else
+        {
+            pitch = - T3D_PI / 2;
+        }
+
+        // Build pitched forward direction by rotating the forward vector around the right axis
+        T3DVec3 f = (T3DVec3){{forward_x, 0.0f, forward_z}};
+        T3DVec3 r = (T3DVec3){{right_x, 0.0f, right_z}};
+        t3d_vec3_norm(&f);
+        t3d_vec3_norm(&r);
+
+        T3DVec3 cross_rf;
+        t3d_vec3_cross(&cross_rf, &r, &f); // cross(r, f)
+
+        float c = cosf(pitch);
+        float s = sinf(pitch);
+
+        T3DVec3 dir_rot = {
+            .v = {
+                f.v[0] * c + cross_rf.v[0] * s,
+                f.v[1] * c + cross_rf.v[1] * s,
+                f.v[2] * c + cross_rf.v[2] * s
+            }
+        };
+        t3d_vec3_norm(&dir_rot);
+
+        // Create rotation matrix that looks along dir_rot, with world-up (0,1,0)
+        T3DMat4 mat;
+        t3d_mat4_rot_from_dir(&mat, &dir_rot, &(T3DVec3){{0,1,0}});
+
+        // apply scale (0.5) to the rotation basis (rows 0..2) and set translation
+        float sx = 0.5f, sy = 0.5f, sz = 0.5f;
+        mat.m[0][0] *= sx; mat.m[0][1] *= sx; mat.m[0][2] *= sx;
+        mat.m[1][0] *= sy; mat.m[1][1] *= sy; mat.m[1][2] *= sy;
+        mat.m[2][0] *= sz; mat.m[2][1] *= sz; mat.m[2][2] *= sz;
+
+        mat.m[3][0] = pipe->wepPos.v[0];
+        mat.m[3][1] = pipe->wepPos.v[1];
+        mat.m[3][2] = pipe->wepPos.v[2];
+        mat.m[3][3] = 1.0f;
+
+        // convert to fixed-point display matrix
+        t3d_mat4_to_fixed_3x4(pipe->modelMatFP, &mat);
     }
     else
     {
         // keep model matrix in sync with world position when not equipped
         t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
             (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){0.0f, -pipe->rotY, 0.0f},
+            (float[3]){0.0f, globalYrot, 0.0f},
             pipe->wepPos.v);
     }
 }
@@ -235,8 +308,23 @@ void player_movement(Player *player, joypad_port_t port)
     (float[3]){0.0f, -player->rotY, 0},
     player->playerPos.v);
 
-    if(joypad.btn.b) player->attacking = true;
-    else player->attacking = false;
+    if(joypad.btn.b && !player->attacking) 
+    {
+        debugf("Player started attacking\n");
+        player->attacking = true;
+        player->attackFrame += 1;
+    }
+
+    if(player->attacking)
+    {
+        player->attackFrame += 1;
+        if(player->attackFrame >= ATK_LENGTH * 2)
+        {
+            player->attackFrame = 0;
+            player->attacking = false;
+            pipe.attackFrame = 0;
+        }
+    }
 
     if(joypad.btn.a) player->asc = true;
 
@@ -296,6 +384,7 @@ int main(void)
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
     while(1) {
+        globalYrot += (2 * T3D_PI) / 60.0f; 
         joypad_poll();
         player_movement(&players[0], JOYPAD_PORT_1);
         player_movement(&players[1], JOYPAD_PORT_2);
