@@ -8,7 +8,7 @@
 #include <libdragon.h>
 
 #define JUMP_HEIGHT 12.0f
-#define ATK_LENGTH 10.0f
+#define ATK_LENGTH 5.0f
 
 surface_t *depthBuffer;
 T3DViewport viewport;
@@ -54,6 +54,7 @@ struct Weapon {
     T3DMat4FP *modelMatFP;
     bool isAttack;
     int attackFrame;
+    T3DVec3 *hit;
 }; 
 
 Player players[4];
@@ -71,6 +72,7 @@ void player_init(Player *player,  T3DVec3 position)
     player->jumpFrame = 0;
     player->alive = true;
     player->attacking = false;
+    player->attackFrame = 0;
     player->weapon = malloc_uncached(sizeof(Weapon));
     rspq_block_begin();
         t3d_matrix_push(player->modelMatFP);
@@ -88,7 +90,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position)
     weapon->damage = 10.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
-
+    weapon->hit = malloc_uncached(sizeof(T3DVec3));
     rspq_block_begin();
         t3d_matrix_push(weapon->modelMatFP);
         t3d_model_draw(modelWeapon); // as in the last example, draw skinned with the main skeleton
@@ -146,12 +148,14 @@ void collision_detect(Player *player)
     {
         if(player != &players[i])
         {
-            float diff = t3d_vec3_distance(&player->playerPos, &players[i].playerPos);
-            if(diff < 10.0f)
+            float diff = t3d_vec3_distance(pipe.hit, &players[i].playerPos);
+            //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
+            if(diff < 50.0f)
             {
                 if(player->attacking)
                 {
                     players[i].alive = false;
+                    debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
                 }
 
             }
@@ -190,9 +194,11 @@ void pipe_movement(Weapon *pipe)
 
         if(p->attacking)
         {
+            debugf("Weapon position during attack: (%f, %f, %f)\n", pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
             debugf("Player attack frame: %i\n", p->attackFrame);
             debugf("Pipe attack frame:   %i\n", pipe->attackFrame);
             pipe->isAttack = true;
+            t3d_vec3_scale(pipe->hit, &pipe->wepPos, 1.5f); // Example scaling, adjust as needed
             if(pipe->attackFrame >= ATK_LENGTH * 2)
             {
                 pipe->attackFrame = 0;
