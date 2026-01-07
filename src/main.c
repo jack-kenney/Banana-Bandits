@@ -152,19 +152,44 @@ void collision_detect(Player *player)
 
 void pipe_movement(Weapon *pipe)
 {
-    if(pipe->equipped)
+    if (pipe->equipped && pipe->attachedPlayer)
     {
-        pipe->wepPos.v[0] = pipe->attachedPlayer->playerPos.v[0];
-        pipe->wepPos.v[1] = pipe->attachedPlayer->playerPos.v[1] + 10.0f;
-        pipe->wepPos.v[2] = pipe->attachedPlayer->playerPos.v[2] + 25.0f;
-        pipe->rotY = pipe->attachedPlayer->rotY;    
+        Player *p = pipe->attachedPlayer;
+        float angle = p->rotY;
+
+        // right vector based on angle (angle from atan2(move.x, move.z) in your code)
+        float right_x = cosf(angle);
+        float right_z = -sinf(angle);
+
+        // offsets: lateral distance to the right, small forward offset, and vertical offset
+        const float lateral_offset = -10.0f;
+        const float forward_offset = 8.0f;
+        const float vertical_offset = 10.0f;
+
+        // forward vector (for small forward offset)
+        float forward_x = sinf(angle);
+        float forward_z = cosf(angle);
+
+        // compute world position: player + right*lateral + forward*forward + up*vertical
+        pipe->wepPos.v[0] = p->playerPos.v[0] + right_x * lateral_offset + forward_x * forward_offset;
+        pipe->wepPos.v[1] = p->playerPos.v[1] + vertical_offset;
+        pipe->wepPos.v[2] = p->playerPos.v[2] + right_z * lateral_offset + forward_z * forward_offset;
+
+        pipe->rotY = p->rotY;
 
         t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
-        (float[3]){0.5f, 0.5f, 0.5f},
-        (float[3]){0.0f, -pipe->attachedPlayer->rotY, 0.0f},
-        pipe->wepPos.v);
+            (float[3]){0.5f, 0.5f, 0.5f},
+            (float[3]){0.0f, -pipe->rotY, 0.0f},
+            pipe->wepPos.v);
     }
-
+    else
+    {
+        // keep model matrix in sync with world position when not equipped
+        t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
+            (float[3]){0.5f, 0.5f, 0.5f},
+            (float[3]){0.0f, -pipe->rotY, 0.0f},
+            pipe->wepPos.v);
+    }
 }
 
 void player_movement(Player *player, joypad_port_t port) 
