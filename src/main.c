@@ -113,7 +113,9 @@ int main(void)
                 rspq_block_run(players[i].dplPlayer);
             }
         }
+
         rspq_block_run(pipe.dplWeapon);
+ 
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise

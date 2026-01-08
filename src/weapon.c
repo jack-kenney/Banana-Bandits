@@ -76,13 +76,14 @@ void pipe_movement(Weapon *pipe, float globalYrot)
                 attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
             }
             // pitch forwards during the attack
-            pitch = (- T3D_PI / 2 ) + attackRotation;
+            pitch = (- T3D_PI / 2) + attackRotation;
         }
         else
         {
             pitch = - T3D_PI / 2;
         }
 
+        
         // Build pitched forward direction by rotating the forward vector around the right axis
         T3DVec3 f = (T3DVec3){{forward_x, 0.0f, forward_z}};
         T3DVec3 r = (T3DVec3){{right_x, 0.0f, right_z}};
@@ -119,9 +120,15 @@ void pipe_movement(Weapon *pipe, float globalYrot)
         mat.m[3][2] = pipe->wepPos.v[2];
         mat.m[3][3] = 1.0f;
 
-        // convert to fixed-point display matrix
+        //convert to fixed-point display matrix
         t3d_mat4_to_fixed_3x4(pipe->modelMatFP, &mat);
-    }
+        
+        /*debugf("rotY: %f\n", pipe->rotY );   
+        t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
+            (float[3]){0.5f, 0.5f, 0.5f},
+            (float[3]){pitch, -pipe->rotY, 0.0f},
+             pipe->wepPos.v);*/
+        }
     else
     {
         // keep model matrix in sync with world position when not equipped
