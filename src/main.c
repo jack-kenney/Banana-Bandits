@@ -6,6 +6,7 @@
 #include <t3d/t3danim.h>
 #include <t3d/t3ddebug.h>
 #include <libdragon.h>
+#include "entities.h"
 
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 5.0f
@@ -26,78 +27,9 @@ T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
 
-typedef struct Weapon Weapon;
-
-typedef struct {
-    T3DVec3 moveDir;
-    bool alive;
-    bool attacking;
-    T3DVec3 playerPos;
-    float currSpeed;
-    float rotY;
-    int jumpFrame;
-    bool asc;
-    rspq_block_t *dplPlayer;
-    T3DMat4FP *modelMatFP;
-    Weapon *weapon;
-    bool hasWeapon;
-    int attackFrame;
-} Player;
-
-struct Weapon {
-    T3DVec3 wepPos;
-    bool equipped;
-    float damage;
-    float rotY;
-    rspq_block_t *dplWeapon;
-    Player *attachedPlayer;
-    T3DMat4FP *modelMatFP;
-    bool isAttack;
-    int attackFrame;
-    T3DVec3 *hit;
-}; 
-
-Player players[4];
 Weapon pipe;
 
 rspq_syncpoint_t syncPoint;
-
-void player_init(Player *player,  T3DVec3 position)
-{
-    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
-    player->moveDir = (T3DVec3){{0,0,0}};
-    player->playerPos = position;
-    player->currSpeed = 0.0f;
-    player->rotY = 0.0f;
-    player->jumpFrame = 0;
-    player->alive = true;
-    player->attacking = false;
-    player->attackFrame = 0;
-    player->weapon = malloc_uncached(sizeof(Weapon));
-    rspq_block_begin();
-        t3d_matrix_push(player->modelMatFP);
-        t3d_model_draw(modelCrystal); // as in the last example, draw skinned with the main skeleton
-        t3d_matrix_pop(1);
-    player->dplPlayer = rspq_block_end();
-}
-
-void weapon_init(Weapon *weapon, T3DVec3 position)
-{
-    weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
-    weapon->wepPos = position;
-    weapon->equipped = false;
-    weapon->attachedPlayer = NULL;
-    weapon->damage = 10.0f;
-    weapon->isAttack = false;
-    weapon->attackFrame = 0;
-    weapon->hit = malloc_uncached(sizeof(T3DVec3));
-    rspq_block_begin();
-        t3d_matrix_push(weapon->modelMatFP);
-        t3d_model_draw(modelWeapon); // as in the last example, draw skinned with the main skeleton
-        t3d_matrix_pop(1);
-    weapon->dplWeapon = rspq_block_end();
-    //debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
-}
 
 void game_init()
 {
@@ -118,249 +50,11 @@ void game_init()
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
     modelCrystal = t3d_model_load("rom:/banana.t3dm");
 
-    weapon_init(&pipe, (T3DVec3){{0.0f, 0.0f, 0.0f}});
-
     rspq_block_begin();
     //t3d_model_draw(modelShadow);
     //t3d_model_draw(modelCrystal);
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
-}
-
-
-void collision_detect(Player *player)
-{
-    float pipeDist = t3d_vec3_distance(&player->playerPos, &pipe.wepPos);
-    //debugf("Distance to pipe: %f\n", pipeDist);
-    if(pipeDist < 15.0f && !player->hasWeapon)
-    {
-        if(!pipe.equipped)
-        {
-            player->weapon->wepPos = pipe.wepPos;
-            player->weapon->damage = pipe.damage;
-            player->hasWeapon = true;
-            pipe.equipped = true;
-            pipe.attachedPlayer = player;
-        }
-    }
-
-    for(int i = 0; i < 4; i++)
-    {
-        if(player != &players[i])
-        {
-            float diff = t3d_vec3_distance(pipe.hit, &players[i].playerPos);
-            //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
-            if(diff < 50.0f)
-            {
-                if(player->attacking)
-                {
-                    players[i].alive = false;
-                    debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
-                }
-
-            }
-        }
-    }
-}
-
-void pipe_movement(Weapon *pipe)
-{
-    float attackRotation = 0.0f;
-    float pitch = 0.0f;
-    if (pipe->equipped && pipe->attachedPlayer)
-    {
-        Player *p = pipe->attachedPlayer;
-        float angle = p->rotY;
-
-        // right vector based on angle
-        float right_x = cosf(angle);
-        float right_z = -sinf(angle);
-
-        // offsets
-        const float lateral_offset = -10.0f;
-        const float forward_offset = 8.0f;
-        const float vertical_offset = 10.0f;
-
-        // forward vector (player facing)
-        float forward_x = sinf(angle);
-        float forward_z = cosf(angle);
-
-        // compute world position: player + right*lateral + forward*forward + up*vertical
-        pipe->wepPos.v[0] = p->playerPos.v[0] + right_x * lateral_offset + forward_x * forward_offset;
-        pipe->wepPos.v[1] = p->playerPos.v[1] + vertical_offset;
-        pipe->wepPos.v[2] = p->playerPos.v[2] + right_z * lateral_offset + forward_z * forward_offset;
-
-        pipe->rotY = p->rotY;
-
-        if(p->attacking)
-        {
-            debugf("Weapon position during attack: (%f, %f, %f)\n", pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
-            debugf("Player attack frame: %i\n", p->attackFrame);
-            debugf("Pipe attack frame:   %i\n", pipe->attackFrame);
-            pipe->isAttack = true;
-            t3d_vec3_scale(pipe->hit, &pipe->wepPos, 1.5f); // Example scaling, adjust as needed
-            if(pipe->attackFrame >= ATK_LENGTH * 2)
-            {
-                pipe->attackFrame = 0;
-                pipe->isAttack = false;
-            }
-            if(pipe->attackFrame < ATK_LENGTH && pipe->isAttack)
-            {
-                pipe->attackFrame += 1;
-                attackRotation = ((T3D_PI / 2) / ATK_LENGTH) * pipe->attackFrame;
-            }
-            else if (pipe->attackFrame >= ATK_LENGTH && pipe->isAttack)
-            {
-                pipe->attackFrame += 1;
-                attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
-            }
-            // pitch forwards during the attack
-            pitch = (- T3D_PI / 2 ) + attackRotation;
-        }
-        else
-        {
-            pitch = - T3D_PI / 2;
-        }
-
-        // Build pitched forward direction by rotating the forward vector around the right axis
-        T3DVec3 f = (T3DVec3){{forward_x, 0.0f, forward_z}};
-        T3DVec3 r = (T3DVec3){{right_x, 0.0f, right_z}};
-        t3d_vec3_norm(&f);
-        t3d_vec3_norm(&r);
-
-        T3DVec3 cross_rf;
-        t3d_vec3_cross(&cross_rf, &r, &f); // cross(r, f)
-
-        float c = cosf(pitch);
-        float s = sinf(pitch);
-
-        T3DVec3 dir_rot = {
-            .v = {
-                f.v[0] * c + cross_rf.v[0] * s,
-                f.v[1] * c + cross_rf.v[1] * s,
-                f.v[2] * c + cross_rf.v[2] * s
-            }
-        };
-        t3d_vec3_norm(&dir_rot);
-
-        // Create rotation matrix that looks along dir_rot, with world-up (0,1,0)
-        T3DMat4 mat;
-        t3d_mat4_rot_from_dir(&mat, &dir_rot, &(T3DVec3){{0,1,0}});
-
-        // apply scale (0.5) to the rotation basis (rows 0..2) and set translation
-        float sx = 0.5f, sy = 0.5f, sz = 0.5f;
-        mat.m[0][0] *= sx; mat.m[0][1] *= sx; mat.m[0][2] *= sx;
-        mat.m[1][0] *= sy; mat.m[1][1] *= sy; mat.m[1][2] *= sy;
-        mat.m[2][0] *= sz; mat.m[2][1] *= sz; mat.m[2][2] *= sz;
-
-        mat.m[3][0] = pipe->wepPos.v[0];
-        mat.m[3][1] = pipe->wepPos.v[1];
-        mat.m[3][2] = pipe->wepPos.v[2];
-        mat.m[3][3] = 1.0f;
-
-        // convert to fixed-point display matrix
-        t3d_mat4_to_fixed_3x4(pipe->modelMatFP, &mat);
-    }
-    else
-    {
-        // keep model matrix in sync with world position when not equipped
-        t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
-            (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){0.0f, globalYrot, 0.0f},
-            pipe->wepPos.v);
-    }
-}
-
-void player_movement(Player *player, joypad_port_t port) 
-{
-    float speed = 0.0f;
-    T3DVec3 newDir = {0};
-    joypad_inputs_t joypad = joypad_get_inputs(port);
-
-    newDir.v[0] = (float)joypad.stick_x * 0.05f;
-    newDir.v[2] = -(float)joypad.stick_y * 0.05f;
-    speed = sqrtf(t3d_vec3_len2(&newDir));
-
-    if(speed > 0.15f) 
-    {
-        newDir.v[0] /= speed;
-        newDir.v[2] /= speed;
-        player->moveDir = newDir;
-
-        float newAngle = atan2f(player->moveDir.v[0], player->moveDir.v[2]);
-        player->rotY = t3d_lerp_angle(player->rotY, newAngle, 0.5f);
-        player->currSpeed = t3d_lerp(player->currSpeed, speed * 0.3f, 0.15f);
-    } 
-    else 
-    {
-    player->currSpeed *= 0.64f;
-    } 
-    // Move player
-    if (joypad.btn.z) player->currSpeed = 5.0f;
-    player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
-    player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
-    // ...and limit position inside the box
-    const float BOX_SIZE = 140.0f;
-    if(player->playerPos.v[0] < -BOX_SIZE)player->playerPos.v[0] = -BOX_SIZE;
-    if(player->playerPos.v[0] >  BOX_SIZE)player->playerPos.v[0] =  BOX_SIZE;
-    if(player->playerPos.v[2] < -BOX_SIZE)player->playerPos.v[2] = -BOX_SIZE;
-    if(player->playerPos.v[2] >  BOX_SIZE)player->playerPos.v[2] =  BOX_SIZE;
-
-    collision_detect(player);
-
-      // Update player matrix
-    t3d_mat4fp_from_srt_euler(player->modelMatFP,
-    (float[3]){0.125f, 0.125f, 0.125f},
-    (float[3]){0.0f, -player->rotY, 0},
-    player->playerPos.v);
-
-    if(joypad.btn.b && !player->attacking) 
-    {
-        debugf("Player started attacking\n");
-        player->attacking = true;
-        player->attackFrame += 1;
-    }
-
-    if(player->attacking)
-    {
-        player->attackFrame += 1;
-        if(player->attackFrame >= ATK_LENGTH * 2)
-        {
-            player->attackFrame = 0;
-            player->attacking = false;
-            pipe.attackFrame = 0;
-        }
-    }
-
-    if(joypad.btn.a) player->asc = true;
-
-    if (player->asc && !joypad.btn.a)
-    {
-        if(player->jumpFrame < 5)
-        {
-            player->playerPos.v[1] += JUMP_HEIGHT;
-            player->jumpFrame++;
-        }
-        else
-        {
-            player->asc = false;
-        }
-    }
-    else if (player->jumpFrame > 0)
-    {
-        player->playerPos.v[1] -= JUMP_HEIGHT;
-        player->jumpFrame--; 
-    }
-
-    if(joypad.btn.c_right)
-    {
-        camPos.v[1] += 2.0f;
-    }
-
-    if(joypad.btn.c_left)
-    {
-        camPos.v[1] -= 2.0f;
-    }
 }
 
 int main(void)
@@ -383,20 +77,21 @@ int main(void)
     audio_init(32000, 3);
     mixer_init(32);
     game_init();
-    player_init(&players[0],(T3DVec3){{-100,0.15f,0}});
-    player_init(&players[1],(T3DVec3){{0,0.15f,-100}});
-    player_init(&players[2],(T3DVec3){{100,0.15f,0}});
-    player_init(&players[3],(T3DVec3){{0,0.15f,100}});
+    player_init(&players[0], (T3DVec3){{-100,0.15f,0}}, modelCrystal);
+    player_init(&players[1], (T3DVec3){{0,0.15f,-100}}, modelCrystal);
+    player_init(&players[2], (T3DVec3){{100,0.15f,0}}, modelCrystal);
+    player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelCrystal);
+    weapon_init(&pipe, (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
     while(1) {
-        globalYrot += (2 * T3D_PI) / 60.0f; 
+        globalYrot += (2 * T3D_PI) / 60.0f;
         joypad_poll();
-        player_movement(&players[0], JOYPAD_PORT_1);
-        player_movement(&players[1], JOYPAD_PORT_2);
-        player_movement(&players[2], JOYPAD_PORT_3);
-        player_movement(&players[3], JOYPAD_PORT_4);
-        pipe_movement(&pipe);
+        player_update(&players[0], JOYPAD_PORT_1, &camPos);
+        player_update(&players[1], JOYPAD_PORT_2, &camPos);
+        player_update(&players[2], JOYPAD_PORT_3, &camPos);
+        player_update(&players[3], JOYPAD_PORT_4, &camPos);
+        pipe_movement(&pipe, globalYrot);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //

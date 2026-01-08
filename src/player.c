@@ -1,0 +1,157 @@
+#include "entities.h"
+#include <t3d/t3dmath.h>
+#include <t3d/t3dmodel.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define JUMP_HEIGHT 12.0f
+#define ATK_LENGTH 5.0f
+
+// define players array (exported via header)
+Player players[4];
+
+// forward declare external pipe (defined in weapon.c)
+extern Weapon pipe;
+
+// internal helper: collision detection
+static void collision_detect(Player *player)
+{
+    float pipeDist = t3d_vec3_distance(&player->playerPos, &pipe.wepPos);
+    if(pipeDist < 15.0f && !player->hasWeapon)
+    {
+        if(!pipe.equipped)
+        {
+            player->weapon->wepPos = pipe.wepPos;
+            player->weapon->damage = pipe.damage;
+            player->hasWeapon = true;
+            player->weapon = &pipe;
+            pipe.equipped = true;
+            pipe.attachedPlayer = player;
+        }
+    }
+
+    for(int i = 0; i < 4; i++)
+    {
+        if(player != &players[i])
+        {
+            float diff = t3d_vec3_distance(pipe.hit, &players[i].playerPos);
+            //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
+            if(diff < 50.0f)
+            {
+                if(player->attacking)
+                {
+                    players[i].alive = false;
+                    debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
+                }
+            }
+        }
+    }
+}
+
+void player_init(Player *player, T3DVec3 position, T3DModel *model)
+{
+    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
+    player->moveDir = (T3DVec3){{0,0,0}};
+    player->playerPos = position;
+    player->currSpeed = 0.0f;
+    player->rotY = 0.0f;
+    player->jumpFrame = 0;
+    player->alive = true;
+    player->attacking = false;
+    player->attackFrame = 0;
+    player->weapon = malloc_uncached(sizeof(Weapon));
+    t3d_model_load("rom:/banana.t3dm");
+    rspq_block_begin();
+        t3d_matrix_push(player->modelMatFP);
+        t3d_model_draw(model); // requires modelCrystal from main/global scope
+        t3d_matrix_pop(1);
+    player->dplPlayer = rspq_block_end();
+}
+
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
+{
+    float speed = 0.0f;
+    T3DVec3 newDir = {0};
+    joypad_inputs_t joypad = joypad_get_inputs(port);
+
+    newDir.v[0] = (float)joypad.stick_x * 0.05f;
+    newDir.v[2] = -(float)joypad.stick_y * 0.05f;
+    speed = sqrtf(t3d_vec3_len2(&newDir));
+
+    if(speed > 0.15f)
+    {
+        newDir.v[0] /= speed;
+        newDir.v[2] /= speed;
+        player->moveDir = newDir;
+
+        float newAngle = atan2f(player->moveDir.v[0], player->moveDir.v[2]);
+        player->rotY = t3d_lerp_angle(player->rotY, newAngle, 0.5f);
+        player->currSpeed = t3d_lerp(player->currSpeed, speed * 0.3f, 0.15f);
+    }
+    else
+    {
+        player->currSpeed *= 0.64f;
+    }
+
+    if (joypad.btn.z) player->currSpeed = 5.0f;
+    player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
+    player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
+
+    const float BOX_SIZE = 140.0f;
+    if(player->playerPos.v[0] < -BOX_SIZE) player->playerPos.v[0] = -BOX_SIZE;
+    if(player->playerPos.v[0] >  BOX_SIZE) player->playerPos.v[0] =  BOX_SIZE;
+    if(player->playerPos.v[2] < -BOX_SIZE) player->playerPos.v[2] = -BOX_SIZE;
+    if(player->playerPos.v[2] >  BOX_SIZE) player->playerPos.v[2] =  BOX_SIZE;
+
+    collision_detect(player);
+
+    t3d_mat4fp_from_srt_euler(player->modelMatFP,
+        (float[3]){0.125f, 0.125f, 0.125f},
+        (float[3]){0.0f, -player->rotY, 0},
+        player->playerPos.v);
+
+    if(joypad.btn.b && !player->attacking) {
+        player->attacking = true;
+        player->attackFrame = 0;
+    }
+
+    if(player->attacking)
+    {
+        player->attackFrame += 1;
+        if(player->attackFrame >= ATK_LENGTH * 2)
+        {
+            player->attackFrame = 0;
+            player->attacking = false;
+            pipe.attackFrame = 0;
+        }
+    }
+
+    if(joypad.btn.a) player->asc = true;
+
+    if (player->asc && !joypad.btn.a)
+    {
+        if(player->jumpFrame < 5)
+        {
+            player->playerPos.v[1] += JUMP_HEIGHT;
+            player->jumpFrame++;
+        }
+        else
+        {
+            player->asc = false;
+        }
+    }
+    else if (player->jumpFrame > 0)
+    {
+        player->playerPos.v[1] -= JUMP_HEIGHT;
+        player->jumpFrame--;
+    }
+        if(joypad.btn.c_right)
+    {
+        camPos->v[1] += 2.0f;
+    }
+
+    if(joypad.btn.c_left)
+    {
+        camPos->v[1] -= 2.0f;
+    }
+}

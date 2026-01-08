@@ -49,7 +49,9 @@ $(FILESYSTEM_DIR)/%.t3dm: $(ASSETS_DIR)/%.glb
 	$(T3D_GLTF_TO_3D) $(T3DM_FLAGS) "$<" $@
 	$(N64_BINDIR)/mkasset -c 2 -o $(FILESYSTEM_DIR) $@
 
-OBJS = $(BUILD_DIR)/main.o
+OBJS = $(BUILD_DIR)/main.o \
+       $(BUILD_DIR)/player.o \
+       $(BUILD_DIR)/weapon.o
 
 
 hello.z64: N64_ROM_TITLE="Banana Bandits"
