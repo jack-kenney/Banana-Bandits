@@ -43,7 +43,7 @@ void pipe_movement(Weapon *pipe, float globalYrot)
     float pitch = 0.0f;
     if (pipe->equipped && pipe->attachedPlayer)
     {
-        debugf("pipe->rotY: %f\n", pipe->rotY);
+        //debugf("pipe->rotY: %f\n", pipe->rotY);
         //pipe->dplWeapon = pipe->dplCarry;
         /*pipe->wepPos.v[0] = pipe->attachedPlayer->playerPos.v[0] + 5.0f;
         pipe->wepPos.v[1] = pipe->attachedPlayer->playerPos.v[1] + 10.0f;
@@ -51,7 +51,6 @@ void pipe_movement(Weapon *pipe, float globalYrot)
         debugf("Pipe is at position: (%f, %f, %f)\n", pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);*/
         Player *p = pipe->attachedPlayer;
         float angle = p->rotY;
-
         // right vector based on angle
         float right_x = cosf(angle);
         float right_z = -sinf(angle);
@@ -80,7 +79,11 @@ void pipe_movement(Weapon *pipe, float globalYrot)
             debugf("Player attack frame: %i\n", p->attackFrame);
             debugf("Pipe attack frame:   %i\n", pipe->attackFrame);
             pipe->isAttack = true;
-            t3d_vec3_scale(pipe->hit, &pipe->wepPos, 2.0f); // Example scaling, adjust as needed
+            T3DVec3 attackDir;
+            t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
+            debugf("Scaled attack direction: (%f, %f, %f)\n", attackDir.v[0], attackDir.v[1], attackDir.v[2]);
+            t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir); // Example scaling, adjust as needed
+            debugf("Attack hit position: (%f, %f, %f)\n", pipe->hit->v[0], pipe->hit->v[1], pipe->hit->v[2]);
             if(pipe->attackFrame >= ATK_LENGTH * 2)
             {
                 pipe->attackFrame = 0;
