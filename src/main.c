@@ -107,7 +107,7 @@ int main(void)
             (float[3]){0.1f, 0.1f, 0.1f},
             (float[3]){0.0f, 0.0f, 0.0f},
             pipe.hit->v);
-        t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
+        t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
         rdpq_attach(display_get(), depthBuffer);

@@ -4,7 +4,6 @@
 #include <t3d/t3d.h>
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
-#include <stdbool.h>
 
 typedef struct Weapon Weapon;
 
