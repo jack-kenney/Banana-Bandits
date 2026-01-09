@@ -16,12 +16,15 @@ T3DViewport viewport;
 rdpq_font_t *font;
 rdpq_font_t *fontBillboard;
 T3DMat4FP *mapMatFP;
+T3DMat4FP *hitbubbleFP;
 rspq_block_t *dplMap;
+rspq_block_t *dplHitbubble;
 T3DModel *model;
 T3DModel *modelShadow;
 T3DModel *modelMap;
 T3DModel *modelWeapon;
 T3DModel *modelCrystal;
+T3DModel *modelHitbubble;
 T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
@@ -49,6 +52,14 @@ void game_init()
     //modelShadow = t3d_model_load("rom:/shadow.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
     modelCrystal = t3d_model_load("rom:/banana.t3dm");
+    modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
+    hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
+
+    rspq_block_begin();
+    t3d_matrix_push(hitbubbleFP);
+    t3d_model_draw(modelHitbubble);
+    t3d_matrix_pop(1);
+    dplHitbubble = rspq_block_end();
 
     rspq_block_begin();
     //t3d_model_draw(modelShadow);
@@ -92,6 +103,10 @@ int main(void)
         player_update(&players[2], JOYPAD_PORT_3, &camPos);
         player_update(&players[3], JOYPAD_PORT_4, &camPos);
         pipe_movement(&pipe, globalYrot);
+        t3d_mat4fp_from_srt_euler(hitbubbleFP,
+            (float[3]){0.1f, 0.1f, 0.1f},
+            (float[3]){0.0f, 0.0f, 0.0f},
+            pipe.hit->v);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 160.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -106,6 +121,7 @@ int main(void)
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
         rspq_block_run(dplMap);
+        rspq_block_run(dplHitbubble);
         for(int i = 0; i < 4; i++)
         {
             if(players[i].alive)
