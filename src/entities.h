@@ -30,7 +30,8 @@ struct Weapon {
     float damage;
     float rotY;
     rspq_block_t *dplWeapon;
-    rspq_block_t *dplAttack;
+    rspq_block_t *dplIdle;
+    rspq_block_t *dplCarry;
     Player *attachedPlayer;
     T3DMat4FP *modelMatFP;
     bool isAttack;

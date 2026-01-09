@@ -3,6 +3,7 @@
 #include <t3d/t3dmodel.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define ATK_LENGTH 5.0f
 
@@ -11,7 +12,8 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
     weapon->wepPos = position;
     weapon->equipped = false;
-    weapon->attachedPlayer = NULL;
+    weapon->attachedPlayer = malloc_uncached(sizeof(Player));
+     memset(weapon->attachedPlayer, 0, sizeof(Player))  ;
     weapon->damage = 10.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
@@ -20,7 +22,15 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
         t3d_matrix_push(weapon->modelMatFP);
         t3d_model_draw(model); // as in the last example, draw skinned with the main skeleton
         t3d_matrix_pop(1);
-    weapon->dplWeapon = rspq_block_end();
+    weapon->dplIdle = rspq_block_end();
+        rspq_block_begin();
+        t3d_matrix_push(weapon->attachedPlayer->modelMatFP);
+        t3d_matrix_push(weapon->modelMatFP);
+        t3d_model_draw(model); // as in the last example, draw skinned with the main skeleton
+        t3d_matrix_pop(1);
+        t3d_matrix_pop(1);
+    weapon->dplCarry = rspq_block_end();
+    weapon->dplWeapon = weapon->dplIdle;
     //debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
 
@@ -30,6 +40,12 @@ void pipe_movement(Weapon *pipe, float globalYrot)
     float pitch = 0.0f;
     if (pipe->equipped && pipe->attachedPlayer)
     {
+        debugf("pipe->rotY: %f\n", pipe->rotY);
+        //pipe->dplWeapon = pipe->dplCarry;
+        /*pipe->wepPos.v[0] = pipe->attachedPlayer->playerPos.v[0] + 5.0f;
+        pipe->wepPos.v[1] = pipe->attachedPlayer->playerPos.v[1] + 10.0f;
+        pipe->wepPos.v[2] = pipe->attachedPlayer->playerPos.v[2] + 5.0f;
+        debugf("Pipe is at position: (%f, %f, %f)\n", pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);*/
         Player *p = pipe->attachedPlayer;
         float angle = p->rotY;
 
@@ -76,14 +92,14 @@ void pipe_movement(Weapon *pipe, float globalYrot)
                 attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
             }
             // pitch forwards during the attack
-            pitch = (- T3D_PI / 2) + attackRotation;
+            pitch = attackRotation;
         }
         else
         {
-            pitch = - T3D_PI / 2;
+            pitch = 0;
         }
 
-        
+        /*
         // Build pitched forward direction by rotating the forward vector around the right axis
         T3DVec3 f = (T3DVec3){{forward_x, 0.0f, forward_z}};
         T3DVec3 r = (T3DVec3){{right_x, 0.0f, right_z}};
@@ -120,14 +136,14 @@ void pipe_movement(Weapon *pipe, float globalYrot)
         mat.m[3][2] = pipe->wepPos.v[2];
         mat.m[3][3] = 1.0f;
 
-        //convert to fixed-point display matrix
-        t3d_mat4_to_fixed_3x4(pipe->modelMatFP, &mat);
+        t3d_mat4_to_fixed_3x4(pipe->modelMatFP, &mat);*/
         
-        /*debugf("rotY: %f\n", pipe->rotY );   
+        //debugf("rotY: %f\n", pipe->rotY );
+     
         t3d_mat4fp_from_srt_euler(pipe->modelMatFP,
             (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){pitch, -pipe->rotY, 0.0f},
-             pipe->wepPos.v);*/
+            (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
+            pipe->wepPos.v);
         }
     else
     {
