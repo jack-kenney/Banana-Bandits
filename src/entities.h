@@ -5,6 +5,10 @@
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
 
+#define JUMP_HEIGHT 12.0f
+#define ATK_LENGTH 5.0f
+
+
 typedef struct Weapon Weapon;
 
 typedef struct {
@@ -40,7 +44,7 @@ struct Weapon {
 };
 
 extern Player players[4];
-extern Weapon pipe;
+extern Weapon pipes[2];
 
 /* Player API */
 void player_init(Player *player, T3DVec3 position, T3DModel *model);

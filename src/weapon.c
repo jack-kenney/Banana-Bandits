@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define ATK_LENGTH 5.0f
+extern Weapon pipes[];
 
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 {

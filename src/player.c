@@ -4,50 +4,76 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define JUMP_HEIGHT 12.0f
-#define ATK_LENGTH 5.0f
-
-// define players array (exported via header)
 Player players[4];
 
-// forward declare external pipe (defined in weapon.c)
-extern Weapon pipe;
 
 // internal helper: collision detection
 static void collision_detect(Player *player)
 {
-    float pipeDist = t3d_vec3_distance(&player->playerPos, &pipe.wepPos);
-    if(pipeDist < 15.0f && !player->hasWeapon)
+    for(int i = 0; i < 2; i++)
     {
-        if(!pipe.equipped)
+
+        if(player != pipes[i].attachedPlayer)
         {
-            player->weapon->wepPos = pipe.wepPos;
-            player->weapon->damage = pipe.damage;
-            player->hasWeapon = true;
-            player->weapon = &pipe;
-            pipe.equipped = true;
-            pipe.attachedPlayer = player;
+            float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
+            if(dist < 15.0f && !player->hasWeapon)
+            {
+                if(!pipes[i].equipped)
+                {
+                    player->weapon->wepPos = pipes[i].wepPos;
+                    player->weapon->damage = pipes[i].damage;
+                    player->hasWeapon = true;
+                    player->weapon = &pipes[i];
+                    pipes[i].equipped = true;
+                    pipes[i].attachedPlayer = player;
+                }
+            }
+        }
+
+        float pipeDist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
+        if(pipeDist < 15.0f && !player->hasWeapon)
+        {
+            if(!pipes[i].equipped)
+            {
+                player->weapon->wepPos = pipes[i].wepPos;
+                player->weapon->damage = pipes[i].damage;
+                player->hasWeapon = true;
+                player->weapon = &pipes[i];
+                pipes[i].equipped = true;
+                pipes[i].attachedPlayer = player;
+            }
         }
     }
 
     for(int i = 0; i < 4; i++)
-    {
-        if(player != &players[i])
         {
-            float diff = t3d_vec3_distance(pipe.hit, &players[i].playerPos);
-            //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
-            if(diff < 50.0f)
+            if(player != &players[i])
             {
-                if(player->attacking)
+                for(int j = 0; j < 2; j++)
                 {
-                    players[i].alive = false;
-                    debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
+                    float diff = t3d_vec3_distance(pipes[j].hit, &players[i].playerPos);
+                    //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
+                    if(diff < 50.0f)
+                    {
+                        if(player->attacking)
+                        {
+                            players[i].alive = false;
+                            debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
+                        }
+                    }
+
+                    if(diff < 50.0f)
+                    {
+                        if(player->attacking)
+                        {
+                            players[i].alive = false;
+                            debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
+                        }
+                    }
                 }
             }
         }
     }
-}
-
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
     player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
@@ -77,7 +103,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     newDir.v[0] = (float)joypad.stick_x * 0.05f;
     newDir.v[2] = -(float)joypad.stick_y * 0.05f;
     speed = sqrtf(t3d_vec3_len2(&newDir));
-
     if(speed > 0.15f)
     {
         newDir.v[0] /= speed;
@@ -96,7 +121,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     if (joypad.btn.z) player->currSpeed = 5.0f;
     player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
     player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
-
+ 
     const float BOX_SIZE = 140.0f;
     if(player->playerPos.v[0] < -BOX_SIZE) player->playerPos.v[0] = -BOX_SIZE;
     if(player->playerPos.v[0] >  BOX_SIZE) player->playerPos.v[0] =  BOX_SIZE;
@@ -104,6 +129,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     if(player->playerPos.v[2] >  BOX_SIZE) player->playerPos.v[2] =  BOX_SIZE;
 
     collision_detect(player);
+
 
     t3d_mat4fp_from_srt_euler(player->modelMatFP,
         (float[3]){0.125f, 0.125f, 0.125f},
@@ -114,7 +140,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
         player->attacking = true;
         player->attackFrame = 0;
     }
-
+ 
     if(player->attacking)
     {
         player->attackFrame += 1;
@@ -122,7 +148,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
         {
             player->attackFrame = 0;
             player->attacking = false;
-            pipe.attackFrame = 0;
+            player->weapon->attackFrame = 0;
         }
     }
 

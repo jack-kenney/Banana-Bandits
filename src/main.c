@@ -8,9 +8,6 @@
 #include <libdragon.h>
 #include "entities.h"
 
-#define JUMP_HEIGHT 12.0f
-#define ATK_LENGTH 5.0f
-
 surface_t *depthBuffer;
 T3DViewport viewport;
 rdpq_font_t *font;
@@ -23,14 +20,14 @@ T3DModel *model;
 T3DModel *modelShadow;
 T3DModel *modelMap;
 T3DModel *modelWeapon;
-T3DModel *modelCrystal;
+T3DModel *modelBanana;
 T3DModel *modelHitbubble;
 T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
 
-Weapon pipe;
+Weapon pipes[2];
 
 rspq_syncpoint_t syncPoint;
 
@@ -51,7 +48,7 @@ void game_init()
     modelMap = t3d_model_load("rom:/map1.t3dm");
     //modelShadow = t3d_model_load("rom:/shadow.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
-    modelCrystal = t3d_model_load("rom:/banana.t3dm");
+    modelBanana = t3d_model_load("rom:/banana.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
 
@@ -88,25 +85,25 @@ int main(void)
     audio_init(32000, 3);
     mixer_init(32);
     game_init();
-    player_init(&players[0], (T3DVec3){{-100,0.15f,0}}, modelCrystal);
-    player_init(&players[1], (T3DVec3){{0,0.15f,-100}}, modelCrystal);
-    player_init(&players[2], (T3DVec3){{100,0.15f,0}}, modelCrystal);
-    player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelCrystal);
-    weapon_init(&pipe, (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
+    player_init(&players[0], (T3DVec3){{-100,0.15f,0}}, modelBanana);
+    player_init(&players[1], (T3DVec3){{0,0.15f,-100}}, modelBanana);
+    player_init(&players[2], (T3DVec3){{100,0.15f,0}}, modelBanana);
+    player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelBanana);
+    weapon_init(&pipes[0], (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
+    weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
     while(1) {
-        globalYrot += (2 * T3D_PI) / 60.0f;
+        globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
+        globalYrot = fmodf(globalYrot, (2 * T3D_PI));
         joypad_poll();
         player_update(&players[0], JOYPAD_PORT_1, &camPos);
         player_update(&players[1], JOYPAD_PORT_2, &camPos);
         player_update(&players[2], JOYPAD_PORT_3, &camPos);
         player_update(&players[3], JOYPAD_PORT_4, &camPos);
-        pipe_movement(&pipe, globalYrot);
-        t3d_mat4fp_from_srt_euler(hitbubbleFP,
-            (float[3]){0.1f, 0.1f, 0.1f},
-            (float[3]){0.0f, 0.0f, 0.0f},
-            pipe.hit->v);
+        pipe_movement(&pipes[0], globalYrot);
+        pipe_movement(&pipes[1], globalYrot);
+
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -121,7 +118,14 @@ int main(void)
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
         rspq_block_run(dplMap);
-        rspq_block_run(dplHitbubble);
+        for(int i = 0; i < 2; i++)
+        {
+            t3d_mat4fp_from_srt_euler(hitbubbleFP,
+                (float[3]){0.1f, 0.1f, 0.1f},
+                (float[3]){0.0f, 0.0f, 0.0f},
+                pipes[i].hit->v);
+        }
+                    rspq_block_run(dplHitbubble);
         for(int i = 0; i < 4; i++)
         {
             if(players[i].alive)
@@ -129,8 +133,10 @@ int main(void)
                 rspq_block_run(players[i].dplPlayer);
             }
         }
-
-        rspq_block_run(pipe.dplWeapon);
+        for(int i = 0; i < 2; i++)
+        {
+            rspq_block_run(pipes[i].dplWeapon);
+        }
  
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
