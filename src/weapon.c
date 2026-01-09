@@ -17,6 +17,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     weapon->damage = 10.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
+    weapon->bobFrame = 0;
     weapon->hit = malloc_uncached(sizeof(T3DVec3));
     rspq_block_begin();
         t3d_matrix_push(weapon->modelMatFP);
@@ -36,6 +37,8 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 
 void pipe_movement(Weapon *pipe, float globalYrot)
 {
+    pipe->bobFrame += 1;
+    if(pipe->bobFrame >= 30) pipe->bobFrame = 0;
     float attackRotation = 0.0f;
     float pitch = 0.0f;
     if (pipe->equipped && pipe->attachedPlayer)
@@ -56,7 +59,9 @@ void pipe_movement(Weapon *pipe, float globalYrot)
         // offsets
         const float lateral_offset = -10.0f;
         const float forward_offset = 8.0f;
-        const float vertical_offset = 10.0f;
+        float vertical_offset;
+        if(pipe->bobFrame >= 15 ) vertical_offset = pipe->bobFrame * 0.3f;
+        else (vertical_offset = (30 - pipe->bobFrame) * 0.3f);
 
         // forward vector (player facing)
         float forward_x = sinf(angle);
@@ -75,7 +80,7 @@ void pipe_movement(Weapon *pipe, float globalYrot)
             debugf("Player attack frame: %i\n", p->attackFrame);
             debugf("Pipe attack frame:   %i\n", pipe->attackFrame);
             pipe->isAttack = true;
-            t3d_vec3_scale(pipe->hit, &pipe->wepPos, 1.5f); // Example scaling, adjust as needed
+            t3d_vec3_scale(pipe->hit, &pipe->wepPos, 2.0f); // Example scaling, adjust as needed
             if(pipe->attackFrame >= ATK_LENGTH * 2)
             {
                 pipe->attackFrame = 0;

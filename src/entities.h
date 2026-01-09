@@ -37,6 +37,7 @@ struct Weapon {
     bool isAttack;
     int attackFrame;
     T3DVec3 *hit;
+    int bobFrame;
 };
 
 extern Player players[4];
