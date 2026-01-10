@@ -29,51 +29,40 @@ static void collision_detect(Player *player)
                 }
             }
         }
-
-        float pipeDist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
-        if(pipeDist < 15.0f && !player->hasWeapon)
-        {
-            if(!pipes[i].equipped)
-            {
-                player->weapon->wepPos = pipes[i].wepPos;
-                player->weapon->damage = pipes[i].damage;
-                player->hasWeapon = true;
-                player->weapon = &pipes[i];
-                pipes[i].equipped = true;
-                pipes[i].attachedPlayer = player;
-            }
-        }
     }
 
+    if(player->isHittable > 0)
+    {
+        player->isHittable -= 1;
+    }
     for(int i = 0; i < 4; i++)
+    {
+        if(player != &players[i])
         {
-            if(player != &players[i])
+            for(int j = 0; j < 2; j++)
             {
-                for(int j = 0; j < 2; j++)
+                float diff = t3d_vec3_distance(pipes[j].hit, &players[i].playerPos);
+                //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
+                if(diff < 50.0f)
                 {
-                    float diff = t3d_vec3_distance(pipes[j].hit, &players[i].playerPos);
-                    //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
-                    if(diff < 50.0f)
+                    if(player->attacking && players[i].isHittable == 0 && players[i].alive)
                     {
-                        if(player->attacking)
+                        players[i].isHittable = 15;
+                        players[i].hitpoints -= player->weapon->damage;
+                        if(players[i].hitpoints <= 0.0f && players[i].alive)
                         {
                             players[i].alive = false;
-                            debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
                         }
-                    }
-
-                    if(diff < 50.0f)
-                    {
-                        if(player->attacking)
-                        {
-                            players[i].alive = false;
-                            debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
-                        }
+                        debugf("Player %p hit Player %p with damage %f\n", (void*)player, (void*)&players[i], player->weapon->damage);
+                        debugf("Player %d hitpoints remaining: %f\n", i, players[i].hitpoints);
+                        //player->attacking = false; // prevent multiple hits per attack
                     }
                 }
             }
         }
     }
+}
+
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
     player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
@@ -83,6 +72,8 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->rotY = 0.0f;
     player->jumpFrame = 0;
     player->alive = true;
+    player->isHittable = 0;
+    player->hitpoints = 100.0f;
     player->attacking = false;
     player->attackFrame = 0;
     player->weapon = malloc_uncached(sizeof(Weapon));

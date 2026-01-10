@@ -12,6 +12,8 @@
 typedef struct Weapon Weapon;
 
 typedef struct {
+    float hitpoints;
+    int isHittable;
     T3DVec3 moveDir;
     bool alive;
     bool attacking;
