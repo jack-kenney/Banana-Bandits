@@ -121,12 +121,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
 
     collision_detect(player);
 
-
-    t3d_mat4fp_from_srt_euler(player->modelMatFP,
-        (float[3]){0.125f, 0.125f, 0.125f},
-        (float[3]){0.0f, -player->rotY, 0},
-        player->playerPos.v);
-
     if(joypad.btn.b && !player->attacking) {
         player->attacking = true;
         player->attackFrame = 0;
@@ -171,4 +165,9 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     {
         camPos->v[1] -= 2.0f;
     }
+
+    t3d_mat4fp_from_srt_euler(player->modelMatFP,
+        (float[3]){0.125f, 0.125f, 0.125f},
+        (float[3]){0.0f, -player->rotY, 0},
+        player->playerPos.v);
 }
