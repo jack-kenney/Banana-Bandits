@@ -48,7 +48,7 @@ void game_init()
     modelMap = t3d_model_load("rom:/map1.t3dm");
     //modelShadow = t3d_model_load("rom:/shadow.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
-    modelBanana = t3d_model_load("rom:/banana.t3dm");
+    modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
 

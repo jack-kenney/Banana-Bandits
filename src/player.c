@@ -16,12 +16,11 @@ static void collision_detect(Player *player)
         if(player != pipes[i].attachedPlayer)
         {
             float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
+            debugf("Distance to weapon %d: %f\n", i, dist); 
             if(dist < 15.0f && !player->hasWeapon)
             {
                 if(!pipes[i].equipped)
                 {
-                    player->weapon->wepPos = pipes[i].wepPos;
-                    player->weapon->damage = pipes[i].damage;
                     player->hasWeapon = true;
                     player->weapon = &pipes[i];
                     pipes[i].equipped = true;
@@ -166,6 +165,18 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     if(joypad.btn.c_left)
     {
         camPos->v[1] -= 2.0f;
+    }
+
+    if(joypad.btn.c_up){
+        //debugf("player-> hasWeapon %i\n", player->hasWeapon);
+        //debugf("pipe 1 coordinates: %f, %f, %f\n", pipes[0].wepPos.v[0], pipes[0].wepPos.v[1], pipes[0].wepPos.v[2]);
+        //debugf("pipe 2 coordinates: %f, %f, %f\n", pipes[1].wepPos.v[0], pipes[1].wepPos.v[1], pipes[1].wepPos.v[2]);
+        if(player->hasWeapon){
+            player->weapon->equipped = false;
+            player->weapon->attachedPlayer = NULL;
+            player->hasWeapon = false;
+            //player->weapon = NULL;
+        }
     }
 
     t3d_mat4fp_from_srt_euler(player->modelMatFP,
