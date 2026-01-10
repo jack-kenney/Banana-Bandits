@@ -75,7 +75,7 @@ int main(void)
 
     asset_init_compression(2);
     asset_init_compression(3);
-
+    bool damageflag = false;
     debug_init_usblog();
     debug_init_isviewer();
     console_set_debug(true);
@@ -99,7 +99,12 @@ int main(void)
     float HP1 = players[1].hitpoints;
     float HP2 = players[2].hitpoints;
     float HP3 = players[3].hitpoints;
+    sprite_t *spriteBanana = sprite_load("rom:/hpbar.sprite");
     while(1) {
+        if(damageflag) damageflag = false;
+        else {
+            damageflag = true;
+        }
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
         joypad_poll();
@@ -134,7 +139,7 @@ int main(void)
         rspq_block_run(dplHitbubble);
         for(int i = 0; i < 4; i++)
         {
-            if(players[i].alive)
+            if(players[i].alive && (players[i].isHittable % 2 == 0))
             {
                 rspq_block_run(players[i].dplPlayer);
             }
@@ -143,6 +148,7 @@ int main(void)
         {
             rspq_block_run(pipes[i].dplWeapon);
         }
+
         rdpq_sync_pipe();
         rdpq_set_scissor(0, 0, sizeX, sizeY);
         rdpq_set_mode_standard();
@@ -155,18 +161,22 @@ int main(void)
 
         // Draw green HP bars first
         rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
-        rdpq_fill_rectangle(20, 20, HP0 + 20, 25);
+        rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
         rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
         rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
         rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
 
         // Then draw red HP bar for missing HP
         rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
-        rdpq_fill_rectangle(HP0 + 20, 20, 120, 25);
+        rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
         rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
         rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
         rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
 
+        rdpq_sync_pipe();
+        rdpq_set_mode_standard();
+        rdpq_mode_alphacompare(128);
+        rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
