@@ -16,7 +16,7 @@ static void collision_detect(Player *player)
         if(player != pipes[i].attachedPlayer)
         {
             float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
-            debugf("Distance to weapon %d: %f\n", i, dist); 
+            //debugf("Distance to weapon %d: %f\n", i, dist); 
             if(dist < 15.0f && !player->hasWeapon)
             {
                 if(!pipes[i].equipped)
@@ -44,7 +44,7 @@ static void collision_detect(Player *player)
                 //debugf("Distance from attack hit to Player %d: %f\n", i, diff); 
                 if(diff < 50.0f)
                 {
-                    if(player->attacking && players[i].isHittable == 0 && players[i].alive)
+                    if(player->attacking && players[i].isHittable == 0 && players[i].alive && &pipes[j] == player->weapon)
                     {
                         players[i].isHittable = 15;
                         players[i].hitpoints -= player->weapon->damage;

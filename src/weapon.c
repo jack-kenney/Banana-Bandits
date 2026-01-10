@@ -32,7 +32,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
         t3d_matrix_pop(1);
     weapon->dplCarry = rspq_block_end();
     weapon->dplWeapon = weapon->dplIdle;
-    debugf("Weapon initialized and DPLs created.\n");
+    //debugf("Weapon initialized and DPLs created.\n");
     //debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
 
@@ -42,7 +42,7 @@ void pipe_movement(Weapon *pipe, float globalYrot)
     if(pipe->bobFrame >= 30) pipe->bobFrame = 0;
     float attackRotation = 0.0f;
     float pitch = 0.0f;
-    debugf("equipped: %d, attachedPlayer: %p\n", pipe->equipped, (void*)pipe->attachedPlayer);
+    //debugf("equipped: %d, attachedPlayer: %p\n", pipe->equipped, (void*)pipe->attachedPlayer);
     if (pipe->equipped && pipe->attachedPlayer)
     {
         //debugf("pipe->rotY: %f\n", pipe->rotY);
