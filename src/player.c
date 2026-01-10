@@ -137,24 +137,26 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
         }
     }
 
-    if(joypad.btn.a) player->asc = true;
+    if(joypad.btn.a && !player->asc && player->jumpFrame == 0) player->asc = true;
 
-    if (player->asc && !joypad.btn.a)
+    if (player->asc) // && !joypad.btn.a)
     {
+        debugf("Jump frame: %d\n", player->jumpFrame);
         if(player->jumpFrame < 5)
         {
             player->playerPos.v[1] += JUMP_HEIGHT;
             player->jumpFrame++;
         }
+        else if (player->jumpFrame >= 5 && player->jumpFrame < 10)
+        {
+            player->playerPos.v[1] -= JUMP_HEIGHT;
+            player->jumpFrame++;
+        }
         else
         {
+            player->jumpFrame = 0;
             player->asc = false;
         }
-    }
-    else if (player->jumpFrame > 0)
-    {
-        player->playerPos.v[1] -= JUMP_HEIGHT;
-        player->jumpFrame--;
     }
         if(joypad.btn.c_right)
     {
