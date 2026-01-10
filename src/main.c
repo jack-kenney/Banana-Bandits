@@ -93,6 +93,12 @@ int main(void)
     weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
+    int sizeX = display_get_width();
+    int sizeY = display_get_height();
+    float HP0 = players[0].hitpoints;
+    float HP1 = players[1].hitpoints;
+    float HP2 = players[2].hitpoints;
+    float HP3 = players[3].hitpoints;
     while(1) {
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
@@ -125,7 +131,7 @@ int main(void)
                 (float[3]){0.0f, 0.0f, 0.0f},
                 pipes[i].hit->v);
         }
-                    rspq_block_run(dplHitbubble);
+        rspq_block_run(dplHitbubble);
         for(int i = 0; i < 4; i++)
         {
             if(players[i].alive)
@@ -137,7 +143,30 @@ int main(void)
         {
             rspq_block_run(pipes[i].dplWeapon);
         }
- 
+        rdpq_sync_pipe();
+        rdpq_set_scissor(0, 0, sizeX, sizeY);
+        rdpq_set_mode_standard();
+
+        // Get all players HP and linearly interpolate for smooth bar movement
+        HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
+        HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
+        HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
+        HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
+
+        // Draw green HP bars first
+        rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
+        rdpq_fill_rectangle(20, 20, HP0 + 20, 25);
+        rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
+        rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
+        rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
+
+        // Then draw red HP bar for missing HP
+        rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
+        rdpq_fill_rectangle(HP0 + 20, 20, 120, 25);
+        rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
+        rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
+        rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
+
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
