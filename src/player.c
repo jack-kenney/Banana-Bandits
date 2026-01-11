@@ -67,7 +67,7 @@ static void collision_detect(Player *player)
 
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
-    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP));
+    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     player->moveDir = (T3DVec3){{0,0,0}};
     player->playerPos = position;
     player->currSpeed = 0.0f;
@@ -83,15 +83,12 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
     //model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();     
-        t3d_matrix_push(player->modelMatFP);
-        //t3d_model_draw(model); // requires modelCrystal from main/global scope
         rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
         t3d_model_draw_skinned(model, player->skel);
-        t3d_matrix_pop(1);
     player->dplPlayer = rspq_block_end();
 }
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx)
 {
     float speed = 0.0f;
     T3DVec3 newDir = {0};
@@ -186,7 +183,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
         }
     }
 
-    t3d_mat4fp_from_srt_euler(player->modelMatFP,
+    t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
         (float[3]){0.125f, 0.125f, 0.125f},
         (float[3]){0.0f, -player->rotY, 0},
         player->playerPos.v);

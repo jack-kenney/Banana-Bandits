@@ -44,7 +44,7 @@ void game_init()
     depthBuffer = display_get_zbuf();
     t3d_init((T3DInitParams){});
 
-    viewport = t3d_viewport_create();
+    viewport = t3d_viewport_create_buffered(FB_COUNT);
     camPos = (T3DVec3){{0, 150.0f, 200.0f}};
     camTarget = (T3DVec3){{0, 0, 40}};
 
@@ -104,7 +104,7 @@ int main(void)
     // IMPORTANT: each runtime animation instance can only drive one skeleton.
     // For testing, create one instance per player and keep them all playing.
     for(int i = 0; i < 4; i++) {
-        animPunch[i] = t3d_anim_create(modelBanana, "bananaPunch");
+        animPunch[i] = t3d_anim_create(modelBanana, "bananaJump");
         t3d_anim_set_looping(&animPunch[i], true);
         t3d_anim_set_playing(&animPunch[i], true);
         t3d_anim_set_speed(&animPunch[i], 2.0f);
@@ -130,12 +130,17 @@ int main(void)
 
         for(int i = 0; i < 4; i++) {
             t3d_anim_update(&animPunch[i], deltaTime);
+            // NOTE: With buffered skeleton matrices, the update code can switch to a new matrix buffer
+            // when any bone changes. If the animation doesn't touch the root bone that frame,
+            // bone 0's matrix might not get written into the new buffer, which looks like a snap to origin.
+            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+            players[i].skel->bones[0].hasChanged = true;
             t3d_skeleton_update(players[i].skel);
         }
-        player_update(&players[0], JOYPAD_PORT_1, &camPos);
-        player_update(&players[1], JOYPAD_PORT_2, &camPos);
-        player_update(&players[2], JOYPAD_PORT_3, &camPos);
-        player_update(&players[3], JOYPAD_PORT_4, &camPos);
+        player_update(&players[0], JOYPAD_PORT_1, &camPos, frameIdx);
+        player_update(&players[1], JOYPAD_PORT_2, &camPos, frameIdx);
+        player_update(&players[2], JOYPAD_PORT_3, &camPos, frameIdx);
+        player_update(&players[3], JOYPAD_PORT_4, &camPos, frameIdx);
         pipe_movement(&pipes[0], globalYrot);
         pipe_movement(&pipes[1], globalYrot);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
@@ -165,8 +170,11 @@ int main(void)
             if(players[i].alive && (players[i].isHittable % 2 == 0))
             {
                 // Buffered skeletons require selecting the active matrices before drawing.
+                // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
                 t3d_skeleton_use(players[i].skel);
+                t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
                 rspq_block_run(players[i].dplPlayer);
+                t3d_matrix_pop(1);
             }
         }
         for(int i = 0; i < 2; i++)
