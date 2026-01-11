@@ -81,6 +81,8 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->weapon = malloc_uncached(sizeof(Weapon));
     player->skel = malloc_uncached(sizeof(*player->skel));
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
+    player->skelBlend = malloc_uncached(sizeof(*player->skel));
+    *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices    
     //model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();     
         rdpq_set_prim_color(RGBA32(255, 255, 255, 255));

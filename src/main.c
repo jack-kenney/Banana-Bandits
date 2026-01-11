@@ -97,16 +97,25 @@ int main(void)
     player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelBanana);
     weapon_init(&pipes[0], (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
     weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
-    T3DAnim animPunch[4];
+    T3DAnim animPunch[4], animIdle[4];
+
     float lastTime = get_time_s() - (1.0f / 60.0f);
     int frameIdx = 0;
 
     // IMPORTANT: each runtime animation instance can only drive one skeleton.
     // For testing, create one instance per player and keep them all playing.
     for(int i = 0; i < 4; i++) {
-        animPunch[i] = t3d_anim_create(modelBanana, "bananaJump");
-        t3d_anim_set_looping(&animPunch[i], true);
-        t3d_anim_set_playing(&animPunch[i], true);
+        // Base animation (always running)
+        animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
+        t3d_anim_set_looping(&animIdle[i], true);
+        t3d_anim_set_playing(&animIdle[i], true);
+        t3d_anim_set_speed(&animIdle[i], 1.0f);
+        t3d_anim_attach(&animIdle[i], players[i].skel);
+
+        // Attack animation (overrides base while playing)
+        animPunch[i] = t3d_anim_create(modelBanana, "bananaWorm");
+        t3d_anim_set_looping(&animPunch[i], false);
+        t3d_anim_set_playing(&animPunch[i], false);
         t3d_anim_set_speed(&animPunch[i], 2.0f);
         t3d_anim_attach(&animPunch[i], players[i].skel);
     }
@@ -128,19 +137,45 @@ int main(void)
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
         joypad_poll();
 
-        for(int i = 0; i < 4; i++) {
-            t3d_anim_update(&animPunch[i], deltaTime);
-            // NOTE: With buffered skeleton matrices, the update code can switch to a new matrix buffer
-            // when any bone changes. If the animation doesn't touch the root bone that frame,
-            // bone 0's matrix might not get written into the new buffer, which looks like a snap to origin.
-            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
-            players[i].skel->bones[0].hasChanged = true;
-            t3d_skeleton_update(players[i].skel);
-        }
+        // ======== Update (gameplay) ======== //
         player_update(&players[0], JOYPAD_PORT_1, &camPos, frameIdx);
         player_update(&players[1], JOYPAD_PORT_2, &camPos, frameIdx);
         player_update(&players[2], JOYPAD_PORT_3, &camPos, frameIdx);
         player_update(&players[3], JOYPAD_PORT_4, &camPos, frameIdx);
+
+        // ======== Update (animation) ======== //
+        for(int i = 0; i < 4; i++) {
+            if(!players[i].alive) continue;
+
+            // Base pose
+            t3d_anim_update(&animIdle[i], deltaTime);
+
+            // Attack overrides base while active
+            if(players[i].attacking) {
+                if(!animPunch[i].isPlaying) {
+                    t3d_anim_set_playing(&animPunch[i], true);
+                    t3d_anim_set_time(&animPunch[i], 0.0f);
+                }
+                t3d_anim_update(&animPunch[i], deltaTime);
+
+                // If the non-looping animation finished, drop back to idle
+                if(!animPunch[i].isPlaying) {
+                    players[i].attacking = false;
+                    players[i].attackFrame = 0;
+                }
+            } else {
+                // Ensure next attack starts from the beginning
+                if(animPunch[i].isPlaying) {
+                    t3d_anim_set_playing(&animPunch[i], false);
+                }
+                t3d_anim_set_time(&animPunch[i], 0.0f);
+            }
+
+            // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+            players[i].skel->bones[0].hasChanged = true;
+            t3d_skeleton_update(players[i].skel);
+        }
         pipe_movement(&pipes[0], globalYrot);
         pipe_movement(&pipes[1], globalYrot);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);

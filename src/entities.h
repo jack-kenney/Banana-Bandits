@@ -7,7 +7,7 @@
 #include <t3d/t3dskeleton.h>
 
 #define JUMP_HEIGHT 12.0f
-#define ATK_LENGTH 5.0f
+#define ATK_LENGTH 30.0f
 
 
 typedef struct Weapon Weapon;
@@ -26,6 +26,7 @@ typedef struct {
     rspq_block_t *dplPlayer;
     T3DMat4FP *modelMatFP;
     T3DSkeleton *skel;
+    T3DSkeleton *skelBlend;
     Weapon *weapon;
     bool hasWeapon;
     int attackFrame;
