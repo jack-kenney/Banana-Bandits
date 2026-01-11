@@ -8,6 +8,8 @@
 #include <libdragon.h>
 #include "entities.h"
 
+#define FB_COUNT 3
+
 surface_t *depthBuffer;
 T3DViewport viewport;
 rdpq_font_t *font;
@@ -30,6 +32,10 @@ float globalYrot;
 Weapon pipes[2];
 
 rspq_syncpoint_t syncPoint;
+
+float get_time_s() {
+  return (float)((double)get_ticks_us() / 1000000.0);
+}
 
 void game_init()
 {
@@ -91,6 +97,19 @@ int main(void)
     player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelBanana);
     weapon_init(&pipes[0], (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
     weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
+    T3DAnim animPunch[4];
+    float lastTime = get_time_s() - (1.0f / 60.0f);
+    int frameIdx = 0;
+
+    // IMPORTANT: each runtime animation instance can only drive one skeleton.
+    // For testing, create one instance per player and keep them all playing.
+    for(int i = 0; i < 4; i++) {
+        animPunch[i] = t3d_anim_create(modelBanana, "bananaPunch");
+        t3d_anim_set_looping(&animPunch[i], true);
+        t3d_anim_set_playing(&animPunch[i], true);
+        t3d_anim_set_speed(&animPunch[i], 2.0f);
+        t3d_anim_attach(&animPunch[i], players[i].skel);
+    }
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
     int sizeX = display_get_width();
@@ -101,20 +120,24 @@ int main(void)
     float HP3 = players[3].hitpoints;
     sprite_t *spriteBanana = sprite_load("rom:/hpbar.sprite");
     while(1) {
-        if(damageflag) damageflag = false;
-        else {
-            damageflag = true;
-        }
+        frameIdx = (frameIdx + 1) % FB_COUNT;
+        float newTime = get_time_s();
+        float deltaTime = newTime - lastTime;
+        lastTime = newTime;
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
         joypad_poll();
+
+        for(int i = 0; i < 4; i++) {
+            t3d_anim_update(&animPunch[i], deltaTime);
+            t3d_skeleton_update(players[i].skel);
+        }
         player_update(&players[0], JOYPAD_PORT_1, &camPos);
         player_update(&players[1], JOYPAD_PORT_2, &camPos);
         player_update(&players[2], JOYPAD_PORT_3, &camPos);
         player_update(&players[3], JOYPAD_PORT_4, &camPos);
         pipe_movement(&pipes[0], globalYrot);
         pipe_movement(&pipes[1], globalYrot);
-
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -141,6 +164,8 @@ int main(void)
         {
             if(players[i].alive && (players[i].isHittable % 2 == 0))
             {
+                // Buffered skeletons require selecting the active matrices before drawing.
+                t3d_skeleton_use(players[i].skel);
                 rspq_block_run(players[i].dplPlayer);
             }
         }

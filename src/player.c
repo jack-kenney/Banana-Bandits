@@ -3,9 +3,11 @@
 #include <t3d/t3dmodel.h>
 #include <stdlib.h>
 #include <string.h>
+#include <t3d/t3dskeleton.h>
+
+#define FB_COUNT 3
 
 Player players[4];
-
 
 // internal helper: collision detection
 static void collision_detect(Player *player)
@@ -16,7 +18,6 @@ static void collision_detect(Player *player)
         if(player != pipes[i].attachedPlayer)
         {
             float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
-            //debugf("Distance to weapon %d: %f\n", i, dist); 
             if(dist < 15.0f && !player->hasWeapon)
             {
                 if(!pipes[i].equipped)
@@ -29,6 +30,8 @@ static void collision_detect(Player *player)
             }
         }
     }
+
+    //debugf("model vertex chunk  : %c\n", model->chunkOffsets[model->chunkIdxVertices].type);
 
     if(player->isHittable > 0)
     {
@@ -76,10 +79,14 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->attacking = false;
     player->attackFrame = 0;
     player->weapon = malloc_uncached(sizeof(Weapon));
-    t3d_model_load("rom:/banana.t3dm");
-    rspq_block_begin();
+    player->skel = malloc_uncached(sizeof(*player->skel));
+    *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
+    //model = t3d_model_load("rom:/banana.t3dm");
+    rspq_block_begin();     
         t3d_matrix_push(player->modelMatFP);
-        t3d_model_draw(model); // requires modelCrystal from main/global scope
+        //t3d_model_draw(model); // requires modelCrystal from main/global scope
+        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+        t3d_model_draw_skinned(model, player->skel);
         t3d_matrix_pop(1);
     player->dplPlayer = rspq_block_end();
 }
@@ -166,7 +173,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos)
     {
         camPos->v[1] -= 2.0f;
     }
-
+    
     if(joypad.btn.c_up){
         //debugf("player-> hasWeapon %i\n", player->hasWeapon);
         //debugf("pipe 1 coordinates: %f, %f, %f\n", pipes[0].wepPos.v[0], pipes[0].wepPos.v[1], pipes[0].wepPos.v[2]);

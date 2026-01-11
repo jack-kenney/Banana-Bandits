@@ -4,6 +4,7 @@
 #include <t3d/t3d.h>
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
+#include <t3d/t3dskeleton.h>
 
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 5.0f
@@ -24,6 +25,7 @@ typedef struct {
     bool asc;
     rspq_block_t *dplPlayer;
     T3DMat4FP *modelMatFP;
+    T3DSkeleton *skel;
     Weapon *weapon;
     bool hasWeapon;
     int attackFrame;
