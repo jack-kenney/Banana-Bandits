@@ -10,6 +10,13 @@
 
 #define FB_COUNT 3
 
+T3DVec3 spawnPositions[] = {
+    (T3DVec3){{-100,0.15f,0}},
+    (T3DVec3){{0,0.15f,-100}},
+    (T3DVec3){{100,0.15f,0}},
+    (T3DVec3){{0,0.15f,100}},
+  };
+
 surface_t *depthBuffer;
 T3DViewport viewport;
 rdpq_font_t *font;
@@ -37,22 +44,30 @@ float get_time_s() {
   return (float)((double)get_ticks_us() / 1000000.0);
 }
 
+// Function to initialize some console and t3d stuff, load models, premake RSP blocks.
 void game_init()
 {
+    asset_init_compression(2);
+    asset_init_compression(3);
+    debug_init_usblog();
+    debug_init_isviewer();
+    console_set_debug(true);
+    joypad_init();
+    timer_init();
+    rdpq_init();
+    audio_init(32000, 3);
+    mixer_init(32);
     dfs_init(DFS_DEFAULT_LOCATION);
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS);
     depthBuffer = display_get_zbuf();
     t3d_init((T3DInitParams){});
-
     viewport = t3d_viewport_create_buffered(FB_COUNT);
     camPos = (T3DVec3){{0, 150.0f, 200.0f}};
     camTarget = (T3DVec3){{0, 0, 40}};
-
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
-    //modelShadow = t3d_model_load("rom:/shadow.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
@@ -74,37 +89,22 @@ void game_init()
 int main(void)
 {
     //console_init();
-
-    //debug_init_usblog();
-    //console_set_debug(true);
-
-
-    asset_init_compression(2);
-    asset_init_compression(3);
-    bool damageflag = false;
-    debug_init_usblog();
-    debug_init_isviewer();
-    console_set_debug(true);
-    joypad_init();
-    timer_init();
-    rdpq_init();
-    audio_init(32000, 3);
-    mixer_init(32);
     game_init();
-    player_init(&players[0], (T3DVec3){{-100,0.15f,0}}, modelBanana);
-    player_init(&players[1], (T3DVec3){{0,0.15f,-100}}, modelBanana);
-    player_init(&players[2], (T3DVec3){{100,0.15f,0}}, modelBanana);
-    player_init(&players[3], (T3DVec3){{0,0.15f,100}}, modelBanana);
+
+    // Intialize weapons
     weapon_init(&pipes[0], (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
     weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
+
+    // Animation variables for each character
     T3DAnim animPunch[4], animIdle[4];
 
+    // Timing variables
     float lastTime = get_time_s() - (1.0f / 60.0f);
     int frameIdx = 0;
 
-    // IMPORTANT: each runtime animation instance can only drive one skeleton.
-    // For testing, create one instance per player and keep them all playing.
+    // Per-player initialization tasks happen in this loop
     for(int i = 0; i < 4; i++) {
+        player_init(&players[i], spawnPositions[i], modelBanana);
         // Base animation (always running)
         animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
         t3d_anim_set_looping(&animIdle[i], true);
@@ -118,36 +118,50 @@ int main(void)
         t3d_anim_set_playing(&animPunch[i], false);
         t3d_anim_set_speed(&animPunch[i], 2.0f);
         t3d_anim_attach(&animPunch[i], players[i].skel);
+
     }
-    uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
-    uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
-    int sizeX = display_get_width();
-    int sizeY = display_get_height();
+
+    // These are used for drawing players' HP bars
     float HP0 = players[0].hitpoints;
     float HP1 = players[1].hitpoints;
     float HP2 = players[2].hitpoints;
     float HP3 = players[3].hitpoints;
+
+    // Lighting colors and screen size, these should probably be moved
+    uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
+    uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
+    int sizeX = display_get_width();
+    int sizeY = display_get_height();
+
+    // Oh right, this isn't used LMAO
     sprite_t *spriteBanana = sprite_load("rom:/hpbar.sprite");
+
+    // Main gameplay loop.
+    // TODO: figure out how to limit framerate.
     while(1) {
+        // Keep track of frame index for animation matrices(buffered)
         frameIdx = (frameIdx + 1) % FB_COUNT;
         float newTime = get_time_s();
         float deltaTime = newTime - lastTime;
         lastTime = newTime;
+
+        // Update global Y rotation for weapons 
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
+
+        // Poll the joypads
         joypad_poll();
 
-        // ======== Update (gameplay) ======== //
-        player_update(&players[0], JOYPAD_PORT_1, &camPos, frameIdx);
-        player_update(&players[1], JOYPAD_PORT_2, &camPos, frameIdx);
-        player_update(&players[2], JOYPAD_PORT_3, &camPos, frameIdx);
-        player_update(&players[3], JOYPAD_PORT_4, &camPos, frameIdx);
-
-        // ======== Update (animation) ======== //
+        // Update players //
         for(int i = 0; i < 4; i++) {
+
+            // Only do this for alive players
             if(!players[i].alive) continue;
 
-            // Base pose
+            // Actually do the update
+            player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx);
+
+            // Update base pose
             t3d_anim_update(&animIdle[i], deltaTime);
 
             // Attack overrides base while active
@@ -176,10 +190,15 @@ int main(void)
             players[i].skel->bones[0].hasChanged = true;
             t3d_skeleton_update(players[i].skel);
         }
+
+        // Update weapons
         pipe_movement(&pipes[0], globalYrot, frameIdx);
         pipe_movement(&pipes[1], globalYrot, frameIdx);
+
+        // Set viewport 
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
+
         // ======== Draw (3D) ======== //
         rdpq_attach(display_get(), depthBuffer);
         t3d_frame_start();
@@ -191,6 +210,8 @@ int main(void)
         t3d_light_set_ambient(colorAmbient);
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
+
+        // Draw map and hitbubbles
         rspq_block_run(dplMap);
         for(int i = 0; i < 2; i++)
         {
@@ -200,6 +221,8 @@ int main(void)
                 pipes[i].hit->v);
         }
         rspq_block_run(dplHitbubble);
+
+        // Draw players
         for(int i = 0; i < 4; i++)
         {
             if(players[i].alive && (players[i].isHittable % 2 == 0))
@@ -212,6 +235,8 @@ int main(void)
                 t3d_matrix_pop(1);
             }
         }
+
+        // Draw weapons
         for(int i = 0; i < 2; i++)
         {
             t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
@@ -219,6 +244,7 @@ int main(void)
             t3d_matrix_pop(1);
         }
 
+        // ======== Draw (2D) ======== //
         rdpq_sync_pipe();
         rdpq_set_scissor(0, 0, sizeX, sizeY);
         rdpq_set_mode_standard();
