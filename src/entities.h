@@ -9,10 +9,10 @@
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
 
-
 typedef struct Weapon Weapon;
 
-typedef struct {
+typedef struct
+{
     float hitpoints;
     int isHittable;
     T3DVec3 moveDir;
@@ -33,7 +33,8 @@ typedef struct {
     int attackFrame;
 } Player;
 
-struct Weapon {
+struct Weapon
+{
     T3DVec3 wepPos;
     bool equipped;
     float damage;

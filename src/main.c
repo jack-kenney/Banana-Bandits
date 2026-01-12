@@ -11,11 +11,11 @@
 #define FB_COUNT 3
 
 T3DVec3 spawnPositions[] = {
-    (T3DVec3){{-100,0.15f,0}},
-    (T3DVec3){{0,0.15f,-100}},
-    (T3DVec3){{100,0.15f,0}},
-    (T3DVec3){{0,0.15f,100}},
-  };
+    (T3DVec3){{-100, 0.15f, 0}},
+    (T3DVec3){{0, 0.15f, -100}},
+    (T3DVec3){{100, 0.15f, 0}},
+    (T3DVec3){{0, 0.15f, 100}},
+};
 
 surface_t *depthBuffer;
 T3DViewport viewport;
@@ -40,8 +40,9 @@ Weapon pipes[2];
 
 rspq_syncpoint_t syncPoint;
 
-float get_time_s() {
-  return (float)((double)get_ticks_us() / 1000000.0);
+float get_time_s()
+{
+    return (float)((double)get_ticks_us() / 1000000.0);
 }
 
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
@@ -80,20 +81,20 @@ void game_init()
     dplHitbubble = rspq_block_end();
 
     rspq_block_begin();
-    //t3d_model_draw(modelShadow);
-    //t3d_model_draw(modelCrystal);
+    // t3d_model_draw(modelShadow);
+    // t3d_model_draw(modelCrystal);
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
 }
 
 int main(void)
 {
-    //console_init();
+    // console_init();
     game_init();
 
     // Intialize weapons
-    weapon_init(&pipes[0], (T3DVec3){{0.0f,0.0f,0.0f}}, modelWeapon);
-    weapon_init(&pipes[1], (T3DVec3){{50.0f,0.0f,50.0f}}, modelWeapon);
+    weapon_init(&pipes[0], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
+    weapon_init(&pipes[1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
 
     // Animation variables for each character
     T3DAnim animPunch[4], animIdle[4];
@@ -103,7 +104,8 @@ int main(void)
     int frameIdx = 0;
 
     // Per-player initialization tasks happen in this loop
-    for(int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++)
+    {
         player_init(&players[i], spawnPositions[i], modelBanana);
         // Base animation (always running)
         animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
@@ -118,7 +120,6 @@ int main(void)
         t3d_anim_set_playing(&animPunch[i], false);
         t3d_anim_set_speed(&animPunch[i], 2.0f);
         t3d_anim_attach(&animPunch[i], players[i].skel);
-
     }
 
     // These are used for drawing players' HP bars
@@ -129,7 +130,7 @@ int main(void)
 
     // Lighting colors and screen size, these should probably be moved
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
-    uint8_t colorDir[4]     = {0xFF, 0xAA, 0xAA, 0xFF};
+    uint8_t colorDir[4] = {0xFF, 0xAA, 0xAA, 0xFF};
     int sizeX = display_get_width();
     int sizeY = display_get_height();
 
@@ -138,14 +139,15 @@ int main(void)
 
     // Main gameplay loop.
     // TODO: figure out how to limit framerate.
-    while(1) {
+    while (1)
+    {
         // Keep track of frame index for animation matrices(buffered)
         frameIdx = (frameIdx + 1) % FB_COUNT;
         float newTime = get_time_s();
         float deltaTime = newTime - lastTime;
         lastTime = newTime;
 
-        // Update global Y rotation for weapons 
+        // Update global Y rotation for weapons
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
 
@@ -153,10 +155,12 @@ int main(void)
         joypad_poll();
 
         // Update players //
-        for(int i = 0; i < 4; i++) {
+        for (int i = 0; i < 4; i++)
+        {
 
             // Only do this for alive players
-            if(!players[i].alive) continue;
+            if (!players[i].alive)
+                continue;
 
             // Actually do the update
             player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx);
@@ -165,21 +169,27 @@ int main(void)
             t3d_anim_update(&animIdle[i], deltaTime);
 
             // Attack overrides base while active
-            if(players[i].attacking) {
-                if(!animPunch[i].isPlaying) {
+            if (players[i].attacking)
+            {
+                if (!animPunch[i].isPlaying)
+                {
                     t3d_anim_set_playing(&animPunch[i], true);
                     t3d_anim_set_time(&animPunch[i], 0.0f);
                 }
                 t3d_anim_update(&animPunch[i], deltaTime);
 
                 // If the non-looping animation finished, drop back to idle
-                if(!animPunch[i].isPlaying) {
+                if (!animPunch[i].isPlaying)
+                {
                     players[i].attacking = false;
                     players[i].attackFrame = 0;
                 }
-            } else {
+            }
+            else
+            {
                 // Ensure next attack starts from the beginning
-                if(animPunch[i].isPlaying) {
+                if (animPunch[i].isPlaying)
+                {
                     t3d_anim_set_playing(&animPunch[i], false);
                 }
                 t3d_anim_set_time(&animPunch[i], 0.0f);
@@ -195,9 +205,9 @@ int main(void)
         pipe_movement(&pipes[0], globalYrot, frameIdx);
         pipe_movement(&pipes[1], globalYrot, frameIdx);
 
-        // Set viewport 
+        // Set viewport
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
-        t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
+        t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0, 1, 0}});
 
         // ======== Draw (3D) ======== //
         rdpq_attach(display_get(), depthBuffer);
@@ -213,19 +223,19 @@ int main(void)
 
         // Draw map and hitbubbles
         rspq_block_run(dplMap);
-        for(int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++)
         {
             t3d_mat4fp_from_srt_euler(hitbubbleFP,
-                (float[3]){0.1f, 0.1f, 0.1f},
-                (float[3]){0.0f, 0.0f, 0.0f},
-                pipes[i].hit->v);
+                                      (float[3]){0.1f, 0.1f, 0.1f},
+                                      (float[3]){0.0f, 0.0f, 0.0f},
+                                      pipes[i].hit->v);
         }
         rspq_block_run(dplHitbubble);
 
         // Draw players
-        for(int i = 0; i < 4; i++)
+        for (int i = 0; i < 4; i++)
         {
-            if(players[i].alive && (players[i].isHittable % 2 == 0))
+            if (players[i].alive && (players[i].isHittable % 2 == 0))
             {
                 // Buffered skeletons require selecting the active matrices before drawing.
                 // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
@@ -237,7 +247,7 @@ int main(void)
         }
 
         // Draw weapons
-        for(int i = 0; i < 2; i++)
+        for (int i = 0; i < 2; i++)
         {
             t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
             rspq_block_run(pipes[i].dplWeapon);
@@ -277,5 +287,5 @@ int main(void)
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
         rdpq_detach_show();
-    }  
+    }
 }

@@ -10,16 +10,6 @@ extern Weapon pipes[];
 
 #define FB_COUNT 3
 
-static inline void rotate_y(T3DVec3 *v, float yaw)
-{
-    float c = cosf(yaw);
-    float s = sinf(yaw);
-    float x = v->v[0] * c + v->v[2] * s;
-    float z = -v->v[0] * s + v->v[2] * c;
-    v->v[0] = x;
-    v->v[2] = z;
-}
-
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 {
     weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
@@ -35,22 +25,23 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 
     // Record a matrix-free display list; caller pushes the correct matrix per frame.
     rspq_block_begin();
-        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-        t3d_model_draw(model);
+    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+    t3d_model_draw(model);
     weapon->dplWeapon = rspq_block_end();
     weapon->dplIdle = weapon->dplWeapon;
     weapon->dplCarry = weapon->dplWeapon;
-    //debugf("Weapon initialized and DPLs created.\n");
-    //debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
+    // debugf("Weapon initialized and DPLs created.\n");
+    // debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
 
 void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
 {
     pipe->bobFrame += 1;
-    if(pipe->bobFrame >= 30) pipe->bobFrame = 0;
+    if (pipe->bobFrame >= 30)
+        pipe->bobFrame = 0;
     float attackRotation = 0.0f;
     float pitch = 0.0f;
-    //debugf("equipped: %d, attachedPlayer: %p\n", pipe->equipped, (void*)pipe->attachedPlayer);
+    // debugf("equipped: %d, attachedPlayer: %p\n", pipe->equipped, (void*)pipe->attachedPlayer);
     if (pipe->equipped && pipe->attachedPlayer)
     {
         Player *p = pipe->attachedPlayer;
@@ -59,24 +50,27 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         // Prefer attaching to the animated hand bone.
         // `t3d_skeleton_get_bone_pos_model_space` returns a position in *model space*,
         // so we must transform it into *world space* using the same SRT matrix as the player render.
-        if(p->handBoneIdx >= 0) {
+        if (p->handBoneIdx >= 0)
+        {
             pipe->boneIndexWeapon = p->handBoneIdx;
             T3DVec3 bonePos = t3d_skeleton_get_bone_pos_model_space(p->skel, p->handBoneIdx);
 
             T3DMat4 playerMat;
             t3d_mat4_from_srt_euler(&playerMat,
-                (float[3]){0.125f, 0.125f, 0.125f},
-                (float[3]){0.0f, -p->rotY, 0.0f},
-                p->playerPos.v);
+                                    (float[3]){0.125f, 0.125f, 0.125f},
+                                    (float[3]){0.0f, -p->rotY, 0.0f},
+                                    p->playerPos.v);
 
             T3DVec4 boneWorld;
             t3d_mat4_mul_vec3(&boneWorld, &playerMat, &bonePos);
             pipe->wepPos = (T3DVec3){{boneWorld.v[0], boneWorld.v[1], boneWorld.v[2]}};
-            debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
-                p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
-            debugf("Bone model space position: (%f, %f, %f)\n",
-                bonePos.v[0], bonePos.v[1], bonePos.v[2]);
-        } else {
+            //debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
+                   //p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
+            //debugf("Bone model space position: (%f, %f, %f)\n",
+                   //bonePos.v[0], bonePos.v[1], bonePos.v[2]);
+        }
+        else
+        {
             // Fallback if we couldn't resolve a hand bone
             pipe->wepPos = p->playerPos;
         }
@@ -84,47 +78,50 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         // Adjust weapon attachment height
         pipe->wepPos.v[1] -= 35.0f;
 
-        if(p->attacking)
+        if (p->attacking)
         {
             pipe->isAttack = true;
             T3DVec3 attackDir;
             t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
             t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
+            debugf("pipe attackframe: %d\n", pipe->attackFrame);
 
-            if(pipe->attackFrame >= ATK_LENGTH * 2)
+            if (pipe->attackFrame >= ATK_LENGTH * 2)
             {
                 pipe->attackFrame = 0;
                 pipe->isAttack = false;
             }
-            if(pipe->attackFrame < ATK_LENGTH && pipe->isAttack)
+            if (pipe->attackFrame < ATK_LENGTH && pipe->isAttack)
             {
-                pipe->attackFrame += 1;
+                pipe->attackFrame += 2;
                 attackRotation = ((T3D_PI / 2) / ATK_LENGTH) * pipe->attackFrame;
             }
             else if (pipe->attackFrame >= ATK_LENGTH && pipe->isAttack)
             {
-                pipe->attackFrame += 1;
+                pipe->attackFrame += 2;
                 attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
             }
             pitch = attackRotation;
         }
         else
         {
+            debugf("pipe attackframe: %d\n", pipe->attackFrame);
+            pipe->attackFrame = 0;
             pitch = 0;
         }
 
         // Update the weapon's render matrix for this frame.
         t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
-            (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
-            pipe->wepPos.v);
+                                  (float[3]){0.5f, 0.5f, 0.5f},
+                                  (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
+                                  pipe->wepPos.v);
     }
     else
     {
         // keep model matrix in sync with world position when not equipped
         t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
-            (float[3]){0.5f, 0.5f, 0.5f},
-            (float[3]){0.0f, globalYrot, 0.0f},
-            pipe->wepPos.v);
+                                  (float[3]){0.5f, 0.5f, 0.5f},
+                                  (float[3]){0.0f, globalYrot, 0.0f},
+                                  pipe->wepPos.v);
     }
 }
