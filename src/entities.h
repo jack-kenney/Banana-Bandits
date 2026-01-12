@@ -27,6 +27,7 @@ typedef struct {
     T3DMat4FP *modelMatFP;
     T3DSkeleton *skel;
     T3DSkeleton *skelBlend;
+    int handBoneIdx;
     Weapon *weapon;
     bool hasWeapon;
     int attackFrame;
@@ -46,6 +47,7 @@ struct Weapon {
     int attackFrame;
     T3DVec3 *hit;
     int bobFrame;
+    int boneIndexWeapon;
 };
 
 extern Player players[4];
@@ -57,6 +59,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
 /* Weapon API */
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
-void pipe_movement(Weapon *weapon, float globalYrot);
+void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx);
 
 #endif // ENTITIES_H

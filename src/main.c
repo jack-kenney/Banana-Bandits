@@ -176,8 +176,8 @@ int main(void)
             players[i].skel->bones[0].hasChanged = true;
             t3d_skeleton_update(players[i].skel);
         }
-        pipe_movement(&pipes[0], globalYrot);
-        pipe_movement(&pipes[1], globalYrot);
+        pipe_movement(&pipes[0], globalYrot, frameIdx);
+        pipe_movement(&pipes[1], globalYrot, frameIdx);
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0,1,0}});
         // ======== Draw (3D) ======== //
@@ -214,7 +214,9 @@ int main(void)
         }
         for(int i = 0; i < 2; i++)
         {
+            t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
             rspq_block_run(pipes[i].dplWeapon);
+            t3d_matrix_pop(1);
         }
 
         rdpq_sync_pipe();
