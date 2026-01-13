@@ -37,6 +37,17 @@ T3DVec3 lightDirVec;
 float globalYrot;
 int gameMode;
 
+enum GameMode {
+    GAME_MODE_PLAY,
+    GAME_MODE_MENU,
+};
+
+#define STRINGIFY(x) #x
+#define STYLE(id) "^0" STRINGIFY(id)
+#define STYLE_TITLE 1
+#define STYLE_GREY 2
+#define STYLE_GREEN 3
+
 Weapon pipes[2];
 
 rspq_syncpoint_t syncPoint;
@@ -60,6 +71,7 @@ void game_init()
     audio_init(32000, 3);
     mixer_init(32);
     dfs_init(DFS_DEFAULT_LOCATION);
+    //console_init();
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS);
     depthBuffer = display_get_zbuf();
     t3d_init((T3DInitParams){});
@@ -68,13 +80,19 @@ void game_init()
     camTarget = (T3DVec3){{0, 0, 40}};
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
-    gameMode = 0;
+    gameMode = GAME_MODE_PLAY;
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
+
+    rdpq_font_t* fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
+    rdpq_font_style(fnt, STYLE_TITLE, &(rdpq_fontstyle_t){RGBA32(0xAA, 0xAA, 0xFF, 0xFF)});
+    rdpq_font_style(fnt, STYLE_GREY,  &(rdpq_fontstyle_t){RGBA32(0x66, 0x66, 0x66, 0xFF)});
+    rdpq_font_style(fnt, STYLE_GREEN, &(rdpq_fontstyle_t){RGBA32(0x39, 0xBF, 0x1F, 0xFF)});
+    rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO, fnt);
 
     rspq_block_begin();
     t3d_matrix_push(hitbubbleFP);
@@ -183,7 +201,7 @@ int main(void)
         rspq_block_run(dplMap);
 
         switch (gameMode){
-            case 0:
+            case GAME_MODE_PLAY:
             {
                 // Update players //
                 for (int i = 0; i < 4; i++)
@@ -293,9 +311,10 @@ int main(void)
 
             }
             break;
-            case 1:
+            case GAME_MODE_MENU:
             {
                 rspq_block_run(dplMap);
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 20, 20, STYLE(STYLE_TITLE) "GAME PAUSED");
             }
             break;
         }
