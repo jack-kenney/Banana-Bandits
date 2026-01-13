@@ -35,6 +35,7 @@ T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
+int gameMode;
 
 Weapon pipes[2];
 
@@ -67,6 +68,7 @@ void game_init()
     camTarget = (T3DVec3){{0, 0, 40}};
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
+    gameMode = 0;
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -151,59 +153,6 @@ int main(void)
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
         globalYrot = fmodf(globalYrot, (2 * T3D_PI));
 
-        // Poll the joypads
-        joypad_poll();
-
-        // Update players //
-        for (int i = 0; i < 4; i++)
-        {
-
-            // Only do this for alive players
-            if (!players[i].alive)
-                continue;
-
-            // Actually do the update
-            player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx);
-
-            // Update base pose
-            t3d_anim_update(&animIdle[i], deltaTime);
-
-            // Attack overrides base while active
-            if (players[i].attacking)
-            {
-                if (!animPunch[i].isPlaying)
-                {
-                    t3d_anim_set_playing(&animPunch[i], true);
-                    t3d_anim_set_time(&animPunch[i], 0.0f);
-                }
-                t3d_anim_update(&animPunch[i], deltaTime);
-
-                // If the non-looping animation finished, drop back to idle
-                if (!animPunch[i].isPlaying)
-                {
-                    players[i].attacking = false;
-                    players[i].attackFrame = 0;
-                }
-            }
-            else
-            {
-                // Ensure next attack starts from the beginning
-                if (animPunch[i].isPlaying)
-                {
-                    t3d_anim_set_playing(&animPunch[i], false);
-                }
-                t3d_anim_set_time(&animPunch[i], 0.0f);
-            }
-
-            // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
-            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
-            players[i].skel->bones[0].hasChanged = true;
-            t3d_skeleton_update(players[i].skel);
-        }
-
-        // Update weapons
-        pipe_movement(&pipes[0], globalYrot, frameIdx);
-        pipe_movement(&pipes[1], globalYrot, frameIdx);
 
         // Set viewport
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
@@ -221,64 +170,137 @@ int main(void)
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
 
-        // Draw map and hitbubbles
+        // Poll the joypads
+        joypad_poll();
+
+        joypad_inputs_t joypad1 = joypad_get_inputs(JOYPAD_PORT_1);
+        if (joypad1.btn.start)  
+        {
+            gameMode = (gameMode + 1) % 2; // toggle between 0 and 1
+        }
+
+        // Draw map first (background)
         rspq_block_run(dplMap);
-        for (int i = 0; i < 2; i++)
-        {
-            t3d_mat4fp_from_srt_euler(hitbubbleFP,
-                                      (float[3]){0.1f, 0.1f, 0.1f},
-                                      (float[3]){0.0f, 0.0f, 0.0f},
-                                      pipes[i].hit->v);
-        }
-        rspq_block_run(dplHitbubble);
 
-        // Draw players
-        for (int i = 0; i < 4; i++)
-        {
-            if (players[i].alive && (players[i].isHittable % 2 == 0))
+        switch (gameMode){
+            case 0:
             {
-                // Buffered skeletons require selecting the active matrices before drawing.
-                // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
-                t3d_skeleton_use(players[i].skel);
-                t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
-                rspq_block_run(players[i].dplPlayer);
-                t3d_matrix_pop(1);
+                // Update players //
+                for (int i = 0; i < 4; i++)
+                {
+
+                    // Only do this for alive players
+                    if (!players[i].alive)
+                        continue;
+
+                    // Actually do the update
+                    player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx);
+
+                    // Update base pose
+                    t3d_anim_update(&animIdle[i], deltaTime);
+
+                    // Attack overrides base while active
+                    if (players[i].attacking)
+                    {
+                        if (!animPunch[i].isPlaying)
+                        {
+                            t3d_anim_set_playing(&animPunch[i], true);
+                            t3d_anim_set_time(&animPunch[i], 0.0f);
+                        }
+                        t3d_anim_update(&animPunch[i], deltaTime);
+
+                        // If the non-looping animation finished, drop back to idle
+                        if (!animPunch[i].isPlaying)
+                        {
+                            players[i].attacking = false;
+                            players[i].attackFrame = 0;
+                        }
+                    }
+                    else
+                    {
+                        // Ensure next attack starts from the beginning
+                        if (animPunch[i].isPlaying)
+                        {
+                            t3d_anim_set_playing(&animPunch[i], false);
+                        }
+                        t3d_anim_set_time(&animPunch[i], 0.0f);
+                    }
+
+                    // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+                    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+                    players[i].skel->bones[0].hasChanged = true;
+                    t3d_skeleton_update(players[i].skel);
+                }
+
+                // Update weapons
+                pipe_movement(&pipes[0], globalYrot, frameIdx);
+                pipe_movement(&pipes[1], globalYrot, frameIdx);
+                for (int i = 0; i < 2; i++)
+                {
+                    t3d_mat4fp_from_srt_euler(hitbubbleFP,
+                                            (float[3]){0.1f, 0.1f, 0.1f},
+                                            (float[3]){0.0f, 0.0f, 0.0f},
+                                            pipes[i].hit->v);
+                }
+                rspq_block_run(dplHitbubble);
+
+                // Draw players
+                for (int i = 0; i < 4; i++)
+                {
+                    if (players[i].alive && (players[i].isHittable % 2 == 0))
+                    {
+                        // Buffered skeletons require selecting the active matrices before drawing.
+                        // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
+                        t3d_skeleton_use(players[i].skel);
+                        t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
+                        rspq_block_run(players[i].dplPlayer);
+                        t3d_matrix_pop(1);
+                    }
+                }
+
+                // Draw weapons
+                for (int i = 0; i < 2; i++)
+                {
+                    t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
+                    rspq_block_run(pipes[i].dplWeapon);
+                    t3d_matrix_pop(1);
+                }
+
+                // ======== Draw (2D) ======== //
+                rdpq_sync_pipe();
+                rdpq_set_scissor(0, 0, sizeX, sizeY);
+                rdpq_set_mode_standard();
+
+                // Get all players HP and linearly interpolate for smooth bar movement
+                HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
+                HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
+                HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
+                HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
+
+                // Draw green HP bars first
+                rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
+                rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
+                rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
+                rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
+                rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
+
+                // Then draw red HP bar for missing HP
+                rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
+                rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
+                rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
+                rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
+                rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
+
             }
+            break;
+            case 1:
+            {
+                rspq_block_run(dplMap);
+            }
+            break;
         }
 
-        // Draw weapons
-        for (int i = 0; i < 2; i++)
-        {
-            t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
-            rspq_block_run(pipes[i].dplWeapon);
-            t3d_matrix_pop(1);
-        }
-
-        // ======== Draw (2D) ======== //
-        rdpq_sync_pipe();
-        rdpq_set_scissor(0, 0, sizeX, sizeY);
-        rdpq_set_mode_standard();
-
-        // Get all players HP and linearly interpolate for smooth bar movement
-        HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
-        HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
-        HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
-        HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
-
-        // Draw green HP bars first
-        rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
-        rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
-        rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
-        rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
-        rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
-
-        // Then draw red HP bar for missing HP
-        rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
-        rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
-        rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
-        rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
-        rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
-
+        // Draw shared 2D overlay (if desired across all modes)
         rdpq_sync_pipe();
         rdpq_set_mode_standard();
         rdpq_mode_alphacompare(128);
