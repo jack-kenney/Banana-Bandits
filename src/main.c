@@ -199,7 +199,7 @@ int main(void)
         {
             gameMode = GAME_MODE_PAUSE;
         }
-        else if (joypad1.btn.start && gameMode == GAME_MODE_PAUSE   )
+        else if (joypad1.btn.start && gameMode == GAME_MODE_PAUSE)
         {
             gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
         }
