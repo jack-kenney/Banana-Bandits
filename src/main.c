@@ -81,7 +81,7 @@ void game_init()
     camTarget = (T3DVec3){{0, 0, 40}};
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
-    gameMode = GAME_MODE_PLAY;
+    gameMode = GAME_MODE_MENU;
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -155,8 +155,10 @@ int main(void)
     int sizeX = display_get_width();
     int sizeY = display_get_height();
 
-    // Oh right, this isn't used LMAO
+    // Load p1 HP bar sprite
     sprite_t *spriteBanana = sprite_load("rom:/hpbar.sprite");
+
+    int menuSelection = 0;
 
     // Main gameplay loop.
     // TODO: figure out how to limit framerate.
@@ -332,9 +334,37 @@ int main(void)
                 //draw menu here
                     // ======== Draw (UI) ======== //
                 rspq_block_run(dplMap);
-                float posX = 16;
-                float posY = 20;
+                float posX = 127;
+                float posY = 40;
+                
+                float cursorX = posX - 10;
+                float cursorY = 60 + (10 * menuSelection);
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Banana Bandits");
+                posY += 20;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Start Game");
+                posY += 10;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Options");
+                posY += 10;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
 
+                if(joypad1.stick_y > 64) {
+                    menuSelection--;
+                    if(menuSelection < 0) menuSelection = 0;
+                }
+                if(joypad1.stick_y < -64) {
+                    menuSelection++;
+                    if(menuSelection > 1) menuSelection = 1;
+                }
+                if(joypad1.btn.a) {
+                    switch(menuSelection) {
+                        case 0:
+                            gameMode = GAME_MODE_PLAY;
+                            break;
+                        case 1:
+                            //options
+                            break;
+                    }
+                }
                 rdpq_sync_pipe();
             }
             break;
