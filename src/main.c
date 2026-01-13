@@ -313,27 +313,33 @@ int main(void)
                 rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
                 rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
                 rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
+                        // Draw shared 2D overlay (if desired across all modes)
+                rdpq_sync_pipe();
+                rdpq_set_mode_standard();
+                rdpq_mode_alphacompare(128);
+                rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
 
             }
             break;
             case GAME_MODE_PAUSE:
             {
                 rspq_block_run(dplMap);
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 20, 20, STYLE(STYLE_TITLE) "GAME PAUSED");
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 127, 20, STYLE(STYLE_TITLE) "GAME PAUSED");
             }
             break;
             case GAME_MODE_MENU:
             {
                 //draw menu here
+                    // ======== Draw (UI) ======== //
+                rspq_block_run(dplMap);
+                float posX = 16;
+                float posY = 20;
+
+                rdpq_sync_pipe();
             }
             break;
         }
 
-        // Draw shared 2D overlay (if desired across all modes)
-        rdpq_sync_pipe();
-        rdpq_set_mode_standard();
-        rdpq_mode_alphacompare(128);
-        rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
