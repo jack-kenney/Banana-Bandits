@@ -138,7 +138,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
     player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
 
-    const float BOX_SIZE = 140.0f;
+    const float BOX_SIZE = 240.0f;
     if (player->playerPos.v[0] < -BOX_SIZE)
         player->playerPos.v[0] = -BOX_SIZE;
     if (player->playerPos.v[0] > BOX_SIZE)
