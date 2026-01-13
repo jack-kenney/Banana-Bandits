@@ -40,6 +40,7 @@ int gameMode;
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
+    GAME_MODE_PAUSE
 };
 
 #define STRINGIFY(x) #x
@@ -192,9 +193,13 @@ int main(void)
         joypad_poll();
 
         joypad_inputs_t joypad1 = joypad_get_inputs(JOYPAD_PORT_1);
-        if (joypad1.btn.start)  
+        if (joypad1.btn.start && gameMode == GAME_MODE_PLAY)
         {
-            gameMode = (gameMode + 1) % 2; // toggle between 0 and 1
+            gameMode = GAME_MODE_PAUSE;
+        }
+        else if (joypad1.btn.start && gameMode == GAME_MODE_PAUSE   )
+        {
+            gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
         }
 
         // Draw map first (background)
@@ -311,10 +316,15 @@ int main(void)
 
             }
             break;
-            case GAME_MODE_MENU:
+            case GAME_MODE_PAUSE:
             {
                 rspq_block_run(dplMap);
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 20, 20, STYLE(STYLE_TITLE) "GAME PAUSED");
+            }
+            break;
+            case GAME_MODE_MENU:
+            {
+                //draw menu here
             }
             break;
         }
