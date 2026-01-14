@@ -84,8 +84,6 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             T3DVec3 attackDir;
             t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
             t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
-            debugf("pipe attackframe: %d\n", pipe->attackFrame);
-
             if (pipe->attackFrame >= ATK_LENGTH * 2)
             {
                 pipe->attackFrame = 0;
@@ -105,7 +103,6 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         }
         else
         {
-            debugf("pipe attackframe: %d\n", pipe->attackFrame);
             pipe->attackFrame = 0;
             pitch = 0;
         }

@@ -194,16 +194,19 @@ int main(void)
         // Poll the joypads
         joypad_poll();
 
+        joypad_buttons_t joypad1_btn = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+
         joypad_inputs_t joypad1 = joypad_get_inputs(JOYPAD_PORT_1);
-        if (joypad1.btn.start && gameMode == GAME_MODE_PLAY)
+        if (joypad1_btn.start && gameMode == GAME_MODE_PLAY)
         {
             gameMode = GAME_MODE_PAUSE;
         }
-        else if (joypad1.btn.start && gameMode == GAME_MODE_PAUSE)
+        else if (joypad1_btn.start && gameMode == GAME_MODE_PAUSE)
         {
             gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
         }
 
+        
         // Draw map first (background)
         rspq_block_run(dplMap);
 
@@ -347,11 +350,11 @@ int main(void)
                 posY += 10;
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
 
-                if(joypad1.stick_y > 64) {
+                if(joypad1.stick_y > 24) {
                     menuSelection--;
                     if(menuSelection < 0) menuSelection = 0;
                 }
-                if(joypad1.stick_y < -64) {
+                if(joypad1.stick_y < -24) {
                     menuSelection++;
                     if(menuSelection > 1) menuSelection = 1;
                 }
