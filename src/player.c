@@ -114,7 +114,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     float speed = 0.0f;
     T3DVec3 newDir = {0};
     joypad_inputs_t joypad = joypad_get_inputs(port);
-
+    joypad_buttons_t joybtns = joypad_get_buttons_pressed(port);
     newDir.v[0] = (float)joypad.stick_x * 0.05f;
     newDir.v[2] = -(float)joypad.stick_y * 0.05f;
     speed = sqrtf(t3d_vec3_len2(&newDir));
@@ -150,7 +150,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     collision_detect(player);
 
-    if (joypad.btn.b && !player->attacking)
+    if (joybtns.b && !player->attacking)
     {
         player->attacking = true;
         player->attackFrame = 0;
@@ -167,7 +167,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         }
     }
 
-    if (joypad.btn.a && !player->asc && player->jumpFrame == 0)
+    if (joybtns.a && !player->asc && player->jumpFrame == 0)
         player->asc = true;
 
     if (player->asc) // && !joypad.btn.a)
@@ -189,17 +189,17 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->asc = false;
         }
     }
-    if (joypad.btn.c_right)
+    if (joybtns.c_right)
     {
         camPos->v[1] += 2.0f;
     }
 
-    if (joypad.btn.c_left)
+    if (joybtns.c_left)
     {
         camPos->v[1] -= 2.0f;
     }
 
-    if (joypad.btn.c_up)
+    if (joybtns.c_up)
     {
         if (player->hasWeapon)
         {
