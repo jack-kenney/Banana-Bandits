@@ -36,12 +36,14 @@ T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
 int gameMode;
+int *winner;
 
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
     GAME_MODE_PAUSE,
-    GAME_MODE_RESET
+    GAME_MODE_RESET,
+    GAME_MODE_END
 };
 
 #define STRINGIFY(x) #x
@@ -83,6 +85,8 @@ void game_init()
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
     gameMode = GAME_MODE_MENU;
+    winner = malloc_uncached(sizeof(int));
+    *winner = -1;
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -215,6 +219,12 @@ int main(void)
             case GAME_MODE_PLAY:
             {
                 // Update players //
+                did_i_win(winner);
+
+                if(*winner != -1) {
+                    gameMode = GAME_MODE_END;
+                    break;
+                }
                 for (int i = 0; i < 4; i++)
                 {
 
@@ -411,8 +421,28 @@ int main(void)
             }
             break;
             case (GAME_MODE_RESET): {
+                *winner = -1;
                 game_reset(spawnPositions);
                 gameMode = GAME_MODE_PLAY;
+            }
+            break;
+            case (GAME_MODE_END): {
+                rspq_block_run(dplMap);
+                float posX = 127;
+                float posY = 100;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Game Over!");
+                posY += 20;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", *winner + 1);
+                posY += 20;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Press A to return to Menu");
+
+                if(joypad1_btn.a) {
+                    *winner = -1;
+                    game_reset(spawnPositions);
+                    gameMode = GAME_MODE_MENU;
+                    menuSelection = 0;
+                }
+                rdpq_sync_pipe();
             }
 
         }
