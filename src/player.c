@@ -27,24 +27,8 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
     player->skelBlend = malloc_uncached(sizeof(*player->skel));
     *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices    
+    player->handBoneIdx = t3d_skeleton_find_bone(player->skel, "Bone.011");
 
-    // Cache a likely hand bone index for weapon attachment.
-    // (Bone names depend on the exporter/rig, so try several common candidates.)
-    player->handBoneIdx = -1;
-    const char *handCandidates[] = {
-        "Bone.011",            // your current test bone
-        //"Hand.R", "hand.R",
-        //"RightHand", "right_hand", "hand_r", "Hand_R",
-        //"mixamorig:RightHand",
-       // "Hand", "hand",
-    };
-    for(size_t i = 0; i < sizeof(handCandidates)/sizeof(handCandidates[0]); i++) {
-        int idx = t3d_skeleton_find_bone(player->skel, handCandidates[i]);
-        if(idx >= 0) { player->handBoneIdx = idx; break; }
-    }
-    if(player->handBoneIdx < 0) {
-        debugf("[player_init] Warning: no hand bone found for weapon attach\n");
-    }
     //model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();     
         rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
@@ -189,12 +173,12 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->asc = false;
         }
     }
-    if (joybtns.c_right)
+    if (joypad.btn.c_right)
     {
         camPos->v[1] += 2.0f;
     }
 
-    if (joybtns.c_left)
+    if (joypad.btn.c_left)
     {
         camPos->v[1] -= 2.0f;
     }

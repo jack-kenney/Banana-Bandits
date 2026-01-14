@@ -51,7 +51,8 @@ $(FILESYSTEM_DIR)/%.t3dm: $(ASSETS_DIR)/%.glb
 
 OBJS = $(BUILD_DIR)/main.o \
        $(BUILD_DIR)/player.o \
-       $(BUILD_DIR)/weapon.o
+       $(BUILD_DIR)/weapon.o \
+	   $(BUILD_DIR)/util.o \
 
 
 hello.z64: N64_ROM_TITLE="Banana Bandits"

@@ -7,7 +7,7 @@
 #include <t3d/t3ddebug.h>
 #include <libdragon.h>
 #include "entities.h"
-
+#include "util.h" 
 #define FB_COUNT 3
 
 T3DVec3 spawnPositions[] = {
@@ -40,7 +40,8 @@ int gameMode;
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
-    GAME_MODE_PAUSE
+    GAME_MODE_PAUSE,
+    GAME_MODE_RESET
 };
 
 #define STRINGIFY(x) #x
@@ -329,17 +330,55 @@ int main(void)
             case GAME_MODE_PAUSE:
             {
                 rspq_block_run(dplMap);
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 127, 20, STYLE(STYLE_TITLE) "GAME PAUSED");
+                float posX = 127;
+                float posY = 40;
+                if(menuSelection > 2) menuSelection = 2;
+                float cursorX = posX - 10;
+                float cursorY = 60 + (10 * menuSelection);
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "GAME PAUSED");
+                posY += 20;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Resume Game");
+                posY += 10;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Reset Game");
+                posY += 10;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Exit to Menu");
+                posY += 10;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
+
+                if(joypad1.stick_y > 24) {
+                    menuSelection--;
+                    if(menuSelection < 0) menuSelection = 0;
+                }
+                if(joypad1.stick_y < -24) {
+                    menuSelection ++;
+                    if(menuSelection > 2) menuSelection = 2;
+                }
+                if(joypad1_btn.a) {
+                    switch(menuSelection) {
+                        case 0:
+                            gameMode = GAME_MODE_PLAY;
+                            break;
+                        case 1:
+                            gameMode = GAME_MODE_RESET;
+                            break;
+                        case 2:
+                            menuSelection = 0;
+                            gameMode = GAME_MODE_MENU;
+                            break;
+                    }
+                }
+                rdpq_sync_pipe();
             }
             break;
             case GAME_MODE_MENU:
             {
+                game_reset(spawnPositions);
                 //draw menu here
                     // ======== Draw (UI) ======== //
                 rspq_block_run(dplMap);
                 float posX = 127;
                 float posY = 40;
-                
+                if(menuSelection > 1) menuSelection = 1;
                 float cursorX = posX - 10;
                 float cursorY = 60 + (10 * menuSelection);
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Banana Bandits");
@@ -358,7 +397,7 @@ int main(void)
                     menuSelection++;
                     if(menuSelection > 1) menuSelection = 1;
                 }
-                if(joypad1.btn.a) {
+                if(joypad1_btn.a) {
                     switch(menuSelection) {
                         case 0:
                             gameMode = GAME_MODE_PLAY;
@@ -371,6 +410,11 @@ int main(void)
                 rdpq_sync_pipe();
             }
             break;
+            case (GAME_MODE_RESET): {
+                game_reset(spawnPositions);
+                gameMode = GAME_MODE_PLAY;
+            }
+
         }
 
         syncPoint = rspq_syncpoint_new();
