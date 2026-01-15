@@ -39,9 +39,20 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 // Cleanup weapon resources
 void weapon_cleanup(Weapon *weapon)
 {
-    rspq_block_free(weapon->dplWeapon);
-    free_uncached(weapon->modelMatFP);
-    free_uncached(weapon->hit);
+    if (weapon->dplWeapon)
+        rspq_block_free(weapon->dplWeapon);
+    if (weapon->modelMatFP)
+        free_uncached(weapon->modelMatFP);
+    if (weapon->hit)
+        free_uncached(weapon->hit);
+
+    weapon->dplWeapon = NULL;
+    weapon->dplIdle = NULL;
+    weapon->dplCarry = NULL;
+    weapon->modelMatFP = NULL;
+    weapon->hit = NULL;
+    weapon->attachedPlayer = NULL;
+    weapon->equipped = false;
 }
 void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
 {

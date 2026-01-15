@@ -65,10 +65,70 @@ float get_time_s()
     return (float)((double)get_ticks_us() / 1000000.0);
 }
 
+// Function to cleanup game resources
+void game_cleanup()
+{
+    for (int i = 0; i < 4; i++)
+    {
+        if (players[i].modelMatFP)
+            player_cleanup(&players[i]);
+        players[i].modelMatFP = NULL;
+        players[i].skel = NULL;
+        players[i].skelBlend = NULL;
+        players[i].weapon = NULL;
+        players[i].hasWeapon = false;
+        players[i].dplPlayer = NULL;
+    }
+    if (pipes[0].modelMatFP || pipes[0].hit)
+        weapon_cleanup(&pipes[0]);
+    if (pipes[1].modelMatFP || pipes[1].hit)
+        weapon_cleanup(&pipes[1]);
+
+
+    //rspq_block_free(dplMap);
+    if (dplHitbubble)
+        rspq_block_free(dplHitbubble);
+    dplHitbubble = NULL;
+
+    if (modelWeapon)
+        t3d_model_free(modelWeapon);
+    if (modelBanana)
+        t3d_model_free(modelBanana);
+    if (modelHitbubble)
+        t3d_model_free(modelHitbubble);
+
+    modelWeapon = NULL;
+    modelBanana = NULL;
+    modelHitbubble = NULL;
+
+    if (hitbubbleFP)
+        free_uncached(hitbubbleFP);
+    if (winner)
+        free_uncached(winner);
+    hitbubbleFP = NULL;
+    winner = NULL;
+
+    if (spriteBanana)
+        sprite_free(spriteBanana);
+    spriteBanana = NULL;
+
+    for (int i = 0; i < 4; i++)
+    {
+        t3d_anim_destroy(&animIdle[i]);
+        t3d_anim_destroy(&animPunch[i]);
+    }
+
+    gameCleanedUp = true;
+}
 
 // Function to set up the players & game, called when a new game is started
 void game_start()
 {
+    // If we somehow start twice without cleaning up (eg: starting from menu
+    // after already initializing at boot), clean up first.
+    if (modelBanana || modelWeapon || modelHitbubble || winner || hitbubbleFP || dplHitbubble)
+        game_cleanup();
+
     winner = malloc_uncached(sizeof(int));
     *winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -117,6 +177,8 @@ void game_start()
         // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
 
+    gameCleanedUp = false;
+
 
 }
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
@@ -159,36 +221,11 @@ void game_init()
     dplMap = rspq_block_end();
 }
 
-// Function to cleanup game resources
-void game_cleanup()
-{
-    for (int i = 0; i < 4; i++)
-    {
-        player_cleanup(&players[i]);
-    }
-    weapon_cleanup(&pipes[0]);
-    weapon_cleanup(&pipes[1]);
-
-
-    //rspq_block_free(dplMap);
-    rspq_block_free(dplHitbubble);
-
-    t3d_model_free(modelWeapon);
-    t3d_model_free(modelBanana);
-    t3d_model_free(modelHitbubble);
-
-    free_uncached(hitbubbleFP);
-    free_uncached(winner);
-
-    t3d_anim_destroy(animIdle);
-    t3d_anim_destroy(animPunch); // move these to main.c
-    }
-
 int main(void)
 {
     // console_init();
     game_init();
-    game_start();
+    // Stay in menu until the user starts a game.
 
     // Lighting colors and screen size, these should probably be moved
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
