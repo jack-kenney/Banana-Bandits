@@ -436,6 +436,7 @@ int main(void)
                 if(joypad1_btn.a) {
                     switch(menuSelection) {
                         case 0:
+                            menuSelection = 0;  
                             gameMode = GAME_MODE_PLAY;
                             break;
                         case 1:
@@ -495,10 +496,9 @@ int main(void)
             break;
             case (GAME_MODE_RESET): {
                 game_cleanup();
-                //game_reset(spawnPositions);
                 game_start();
-                
                 gameMode = GAME_MODE_PLAY;
+                menuSelection = 0;
             }
             break;
             case (GAME_MODE_END): {
