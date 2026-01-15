@@ -69,7 +69,6 @@ float get_time_s()
 // Function to set up the players & game, called when a new game is started
 void game_start()
 {
-    debugf("Starting new game...\n");
     winner = malloc_uncached(sizeof(int));
     *winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -77,7 +76,6 @@ void game_start()
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
 
-    debugf("Creating hitbubble DPL...\n");
     rspq_block_begin();
     t3d_matrix_push(hitbubbleFP);
     t3d_model_draw(modelHitbubble);
@@ -408,6 +406,8 @@ int main(void)
                             break;
                         case 2:
                             menuSelection = 0;
+                            *winner = -1;
+                             game_cleanup();
                             gameMode = GAME_MODE_MENU;
                             break;
                     }
@@ -458,7 +458,10 @@ int main(void)
             break;
             case (GAME_MODE_RESET): {
                 *winner = -1;
-                game_reset(spawnPositions);
+                game_cleanup();
+                //game_reset(spawnPositions);
+                game_start();
+                
                 gameMode = GAME_MODE_PLAY;
             }
             break;
@@ -475,7 +478,6 @@ int main(void)
                 if(joypad1_btn.a) {
                     *winner = -1;
                     game_cleanup();
-                    //game_reset(spawnPositions);
                     gameMode = GAME_MODE_MENU;
                     menuSelection = 0;
                 }
