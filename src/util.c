@@ -16,6 +16,7 @@ void game_reset(T3DVec3 spawnPositions[4]){
             players[i].weapon->equipped = false;
             players[i].weapon->attachedPlayer = NULL;
         }
+        players[i].weapon = NULL;
     }
 
     for(int i = 0; i < 2; i++){

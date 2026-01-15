@@ -57,9 +57,11 @@ extern Weapon pipes[2];
 /* Player API */
 void player_init(Player *player, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx);
+void player_cleanup(Player *player);
 
 /* Weapon API */
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
 void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx);
+void weapon_cleanup(Weapon *weapon);
 
 #endif // ENTITIES_H

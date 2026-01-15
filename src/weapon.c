@@ -16,12 +16,14 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     weapon->wepPos = position;
     weapon->equipped = false;
     weapon->attachedPlayer = NULL;
-    weapon->damage = 10.0f;
+    weapon->damage = 100.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
     weapon->bobFrame = 0;
     weapon->boneIndexWeapon = -1;
     weapon->hit = malloc_uncached(sizeof(T3DVec3));
+    if (weapon->hit)
+        *weapon->hit = position;
 
     // Record a matrix-free display list; caller pushes the correct matrix per frame.
     rspq_block_begin();
@@ -34,6 +36,13 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     // debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
 
+// Cleanup weapon resources
+void weapon_cleanup(Weapon *weapon)
+{
+    rspq_block_free(weapon->dplWeapon);
+    free_uncached(weapon->modelMatFP);
+    free_uncached(weapon->hit);
+}
 void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
 {
     pipe->bobFrame += 1;
@@ -105,6 +114,8 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         {
             pipe->attackFrame = 0;
             pitch = 0;
+            if (pipe->hit)
+                *pipe->hit = pipe->wepPos;
         }
 
         // Update the weapon's render matrix for this frame.
@@ -115,6 +126,8 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
     }
     else
     {
+        if (pipe->hit)
+            *pipe->hit = pipe->wepPos;
         // keep model matrix in sync with world position when not equipped
         t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
                                   (float[3]){0.5f, 0.5f, 0.5f},

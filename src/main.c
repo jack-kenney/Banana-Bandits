@@ -39,6 +39,7 @@ int gameMode, frameIdx;
 int *winner;
 float HP0, HP1, HP2, HP3, lastTime;
 sprite_t *spriteBanana;
+bool gameCleanedUp = false;
 
 T3DAnim animPunch[4], animIdle[4];
 enum GameMode {
@@ -68,6 +69,7 @@ float get_time_s()
 // Function to set up the players & game, called when a new game is started
 void game_start()
 {
+    debugf("Starting new game...\n");
     winner = malloc_uncached(sizeof(int));
     *winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe.t3dm");
@@ -75,6 +77,7 @@ void game_start()
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
 
+    debugf("Creating hitbubble DPL...\n");
     rspq_block_begin();
     t3d_matrix_push(hitbubbleFP);
     t3d_model_draw(modelHitbubble);
@@ -88,7 +91,6 @@ void game_start()
     // Timing variables
     lastTime = get_time_s() - (1.0f / 60.0f);
     frameIdx = 0;
-
     // Per-player initialization tasks happen in this loop
     for (int i = 0; i < 4; i++)
     {
@@ -116,6 +118,7 @@ void game_start()
 
         // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
+
 
 }
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
@@ -157,6 +160,31 @@ void game_init()
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
 }
+
+// Function to cleanup game resources
+void game_cleanup()
+{
+    for (int i = 0; i < 4; i++)
+    {
+        player_cleanup(&players[i]);
+    }
+    weapon_cleanup(&pipes[0]);
+    weapon_cleanup(&pipes[1]);
+
+
+    //rspq_block_free(dplMap);
+    rspq_block_free(dplHitbubble);
+
+    t3d_model_free(modelWeapon);
+    t3d_model_free(modelBanana);
+    t3d_model_free(modelHitbubble);
+
+    free_uncached(hitbubbleFP);
+    free_uncached(winner);
+
+    t3d_anim_destroy(animIdle);
+    t3d_anim_destroy(animPunch); // move these to main.c
+    }
 
 int main(void)
 {
@@ -418,6 +446,7 @@ int main(void)
                     switch(menuSelection) {
                         case 0:
                             gameMode = GAME_MODE_PLAY;
+                            game_start();
                             break;
                         case 1:
                             //options
@@ -445,7 +474,8 @@ int main(void)
 
                 if(joypad1_btn.a) {
                     *winner = -1;
-                    game_reset(spawnPositions);
+                    game_cleanup();
+                    //game_reset(spawnPositions);
                     gameMode = GAME_MODE_MENU;
                     menuSelection = 0;
                 }
