@@ -31,12 +31,12 @@ ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(IMAGE_LIST:%.png=%.spri
 $(BUILD_DIR)/hello.dfs: $(ASSETS_LIST)
 
 # Make the ROM depend on the packaged DFS so assets are packaged before z64 creation
-hello.z64: $(BUILD_DIR)/hello.dfs
+BananaBandits.z64: $(BUILD_DIR)/hello.dfs
 
-all: hello.z64
+all: BananaBandits.z64
 .PHONY: all
 
-hello.z64: $(ASSETS_LIST)
+BananaBandits.z64: $(ASSETS_LIST)
 
 $(FILESYSTEM_DIR)/%.sprite: $(ASSETS_DIR)/%.png
 	@mkdir -p $(dir $@)
@@ -51,12 +51,13 @@ $(FILESYSTEM_DIR)/%.t3dm: $(ASSETS_DIR)/%.glb
 
 OBJS = $(BUILD_DIR)/main.o \
        $(BUILD_DIR)/player.o \
-       $(BUILD_DIR)/weapon.o
+       $(BUILD_DIR)/weapon.o \
+	   $(BUILD_DIR)/util.o \
 
 
-hello.z64: N64_ROM_TITLE="Banana Bandits"
+BananaBandits.z64: N64_ROM_TITLE="Banana Bandits"
 
-$(BUILD_DIR)/hello.elf: $(OBJS)
+$(BUILD_DIR)/BananaBandits.elf: $(OBJS)
 
 clean:
 	rm -f $(BUILD_DIR)/* *.z64
