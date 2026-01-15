@@ -35,9 +35,12 @@ T3DVec3 camPos;
 T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
-int gameMode;
+int gameMode, frameIdx;
 int *winner;
+float HP0, HP1, HP2, HP3, lastTime;
+sprite_t *spriteBanana;
 
+T3DAnim animPunch[4], animIdle[4];
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
@@ -61,6 +64,60 @@ float get_time_s()
     return (float)((double)get_ticks_us() / 1000000.0);
 }
 
+
+// Function to set up the players & game, called when a new game is started
+void game_start()
+{
+    winner = malloc_uncached(sizeof(int));
+    *winner = -1;
+    modelWeapon = t3d_model_load("rom:/pipe.t3dm");
+    modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
+    modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
+    hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
+
+    rspq_block_begin();
+    t3d_matrix_push(hitbubbleFP);
+    t3d_model_draw(modelHitbubble);
+    t3d_matrix_pop(1);
+    dplHitbubble = rspq_block_end();
+
+    // Intialize weapons
+    weapon_init(&pipes[0], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
+    weapon_init(&pipes[1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
+
+    // Timing variables
+    lastTime = get_time_s() - (1.0f / 60.0f);
+    frameIdx = 0;
+
+    // Per-player initialization tasks happen in this loop
+    for (int i = 0; i < 4; i++)
+    {
+        player_init(&players[i], spawnPositions[i], modelBanana);
+        // Base animation (always running)
+        animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
+        t3d_anim_set_looping(&animIdle[i], true);
+        t3d_anim_set_playing(&animIdle[i], true);
+        t3d_anim_set_speed(&animIdle[i], 1.0f);
+        t3d_anim_attach(&animIdle[i], players[i].skel);
+
+        // Attack animation (overrides base while playing)
+        animPunch[i] = t3d_anim_create(modelBanana, "bananaWorm");
+        t3d_anim_set_looping(&animPunch[i], false);
+        t3d_anim_set_playing(&animPunch[i], false);
+        t3d_anim_set_speed(&animPunch[i], 2.0f);
+        t3d_anim_attach(&animPunch[i], players[i].skel);
+    }
+
+    // These are used for drawing players' HP bars
+    HP0 = players[0].hitpoints;
+    HP1 = players[1].hitpoints;
+    HP2 = players[2].hitpoints;
+    HP3 = players[3].hitpoints;
+
+        // Load p1 HP bar sprite
+    spriteBanana = sprite_load("rom:/hpbar.sprite");
+
+}
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
 void game_init()
 {
@@ -85,26 +142,14 @@ void game_init()
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
     gameMode = GAME_MODE_MENU;
-    winner = malloc_uncached(sizeof(int));
-    *winner = -1;
+
 
     modelMap = t3d_model_load("rom:/map1.t3dm");
-    modelWeapon = t3d_model_load("rom:/pipe.t3dm");
-    modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
-    modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
-    hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
-
     rdpq_font_t* fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
     rdpq_font_style(fnt, STYLE_TITLE, &(rdpq_fontstyle_t){RGBA32(0xAA, 0xAA, 0xFF, 0xFF)});
     rdpq_font_style(fnt, STYLE_GREY,  &(rdpq_fontstyle_t){RGBA32(0x66, 0x66, 0x66, 0xFF)});
     rdpq_font_style(fnt, STYLE_GREEN, &(rdpq_fontstyle_t){RGBA32(0x39, 0xBF, 0x1F, 0xFF)});
     rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO, fnt);
-
-    rspq_block_begin();
-    t3d_matrix_push(hitbubbleFP);
-    t3d_model_draw(modelHitbubble);
-    t3d_matrix_pop(1);
-    dplHitbubble = rspq_block_end();
 
     rspq_block_begin();
     // t3d_model_draw(modelShadow);
@@ -117,51 +162,13 @@ int main(void)
 {
     // console_init();
     game_init();
-
-    // Intialize weapons
-    weapon_init(&pipes[0], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
-    weapon_init(&pipes[1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
-
-    // Animation variables for each character
-    T3DAnim animPunch[4], animIdle[4];
-
-    // Timing variables
-    float lastTime = get_time_s() - (1.0f / 60.0f);
-    int frameIdx = 0;
-
-    // Per-player initialization tasks happen in this loop
-    for (int i = 0; i < 4; i++)
-    {
-        player_init(&players[i], spawnPositions[i], modelBanana);
-        // Base animation (always running)
-        animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
-        t3d_anim_set_looping(&animIdle[i], true);
-        t3d_anim_set_playing(&animIdle[i], true);
-        t3d_anim_set_speed(&animIdle[i], 1.0f);
-        t3d_anim_attach(&animIdle[i], players[i].skel);
-
-        // Attack animation (overrides base while playing)
-        animPunch[i] = t3d_anim_create(modelBanana, "bananaWorm");
-        t3d_anim_set_looping(&animPunch[i], false);
-        t3d_anim_set_playing(&animPunch[i], false);
-        t3d_anim_set_speed(&animPunch[i], 2.0f);
-        t3d_anim_attach(&animPunch[i], players[i].skel);
-    }
-
-    // These are used for drawing players' HP bars
-    float HP0 = players[0].hitpoints;
-    float HP1 = players[1].hitpoints;
-    float HP2 = players[2].hitpoints;
-    float HP3 = players[3].hitpoints;
+    game_start();
 
     // Lighting colors and screen size, these should probably be moved
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
     uint8_t colorDir[4] = {0xFF, 0xAA, 0xAA, 0xFF};
     int sizeX = display_get_width();
     int sizeY = display_get_height();
-
-    // Load p1 HP bar sprite
-    sprite_t *spriteBanana = sprite_load("rom:/hpbar.sprite");
 
     int menuSelection = 0;
 
