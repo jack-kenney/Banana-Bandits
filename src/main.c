@@ -457,7 +457,6 @@ int main(void)
             }
             break;
             case (GAME_MODE_RESET): {
-                *winner = -1;
                 game_cleanup();
                 //game_reset(spawnPositions);
                 game_start();
@@ -476,7 +475,6 @@ int main(void)
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Press A to return to Menu");
 
                 if(joypad1_btn.a) {
-                    *winner = -1;
                     game_cleanup();
                     gameMode = GAME_MODE_MENU;
                     menuSelection = 0;
