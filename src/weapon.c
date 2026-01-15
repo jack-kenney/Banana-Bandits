@@ -16,7 +16,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     weapon->wepPos = position;
     weapon->equipped = false;
     weapon->attachedPlayer = NULL;
-    weapon->damage = 100.0f;
+    weapon->damage = 10.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
     weapon->bobFrame = 0;
