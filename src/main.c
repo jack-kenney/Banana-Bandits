@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <t3d/t3d.h>
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
@@ -9,6 +10,342 @@
 #include "entities.h"
 #include "util.h" 
 #define FB_COUNT 3
+
+// Debug rendering (CPU) of simple wireframe bounds.
+static bool debugDrawPlayerAABBs = false;
+static bool debugDrawPlayerCapsules = false;
+static bool debugDrawMapCandidates = false;
+
+// Gameplay-ish debug collider dimensions (in world units). Tune as desired.
+static const float PLAYER_CAPSULE_RADIUS = 15.0f;
+static const float PLAYER_CAPSULE_HEIGHT = 90.0f; // total height including caps
+
+static inline float s16_to_f32(int16_t v) { return (float)v; }
+
+typedef struct {
+    T3DVec3 min;
+    T3DVec3 max;
+} AabbF;
+
+static void debug_mat4fp_to_mat4(T3DMat4 *out, const T3DMat4FP *in);
+static void debug_draw_box_wireframe(surface_t *surface, T3DViewport *viewport, const T3DVec3 cornersWorld[8], uint32_t color);
+
+static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
+{
+    return (a->min.v[0] <= b->max.v[0] && a->max.v[0] >= b->min.v[0]) &&
+           (a->min.v[1] <= b->max.v[1] && a->max.v[1] >= b->min.v[1]) &&
+           (a->min.v[2] <= b->max.v[2] && a->max.v[2] >= b->min.v[2]);
+}
+
+static void debug_get_model_feet_world(T3DVec3 *outFeetWorld, const T3DModel *model, const T3DMat4FP *modelMat)
+{
+    const float minY = s16_to_f32(model->aabbMin[1]);
+    T3DMat4 matFloat;
+    debug_mat4fp_to_mat4(&matFloat, modelMat);
+
+    const T3DVec3 localFeet = (T3DVec3){{0.0f, minY, 0.0f}};
+    T3DVec4 feetW;
+    t3d_mat4_mul_vec3(&feetW, &matFloat, &localFeet);
+    *outFeetWorld = (T3DVec3){{feetW.v[0], feetW.v[1], feetW.v[2]}};
+}
+
+static void aabbf_from_capsule(AabbF *out, const T3DVec3 *feetWorld, float radius, float height)
+{
+    out->min = (T3DVec3){{feetWorld->v[0] - radius, feetWorld->v[1],          feetWorld->v[2] - radius}};
+    out->max = (T3DVec3){{feetWorld->v[0] + radius, feetWorld->v[1] + height, feetWorld->v[2] + radius}};
+}
+
+static void debug_draw_aabbf(surface_t *surface, T3DViewport *viewport, const AabbF *aabb, uint32_t color)
+{
+    const T3DVec3 cornersWorld[8] = {
+        (T3DVec3){{aabb->min.v[0], aabb->min.v[1], aabb->min.v[2]}},
+        (T3DVec3){{aabb->max.v[0], aabb->min.v[1], aabb->min.v[2]}},
+        (T3DVec3){{aabb->max.v[0], aabb->min.v[1], aabb->max.v[2]}},
+        (T3DVec3){{aabb->min.v[0], aabb->min.v[1], aabb->max.v[2]}},
+        (T3DVec3){{aabb->min.v[0], aabb->max.v[1], aabb->min.v[2]}},
+        (T3DVec3){{aabb->max.v[0], aabb->max.v[1], aabb->min.v[2]}},
+        (T3DVec3){{aabb->max.v[0], aabb->max.v[1], aabb->max.v[2]}},
+        (T3DVec3){{aabb->min.v[0], aabb->max.v[1], aabb->max.v[2]}},
+    };
+
+    debug_draw_box_wireframe(surface, viewport, cornersWorld, color);
+}
+
+static void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DObject *obj, const T3DMat4 *modelMat, uint32_t color)
+{
+    if (!surface || !viewport || !obj || !modelMat) return;
+
+    const float minX = s16_to_f32(obj->aabbMin[0]);
+    const float minY = s16_to_f32(obj->aabbMin[1]);
+    const float minZ = s16_to_f32(obj->aabbMin[2]);
+    const float maxX = s16_to_f32(obj->aabbMax[0]);
+    const float maxY = s16_to_f32(obj->aabbMax[1]);
+    const float maxZ = s16_to_f32(obj->aabbMax[2]);
+
+    const T3DVec3 localCorners[8] = {
+        (T3DVec3){{minX, minY, minZ}},
+        (T3DVec3){{maxX, minY, minZ}},
+        (T3DVec3){{maxX, minY, maxZ}},
+        (T3DVec3){{minX, minY, maxZ}},
+        (T3DVec3){{minX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, maxZ}},
+        (T3DVec3){{minX, maxY, maxZ}},
+    };
+
+    T3DVec3 cornersWorld[8];
+    for (int i = 0; i < 8; i++) {
+        T3DVec4 out;
+        t3d_mat4_mul_vec3(&out, modelMat, &localCorners[i]);
+        cornersWorld[i] = (T3DVec3){{out.v[0], out.v[1], out.v[2]}};
+    }
+
+    debug_draw_box_wireframe(surface, viewport, cornersWorld, color);
+}
+
+static void debug_draw_marker(surface_t *surface, int x, int y, int r, uint32_t color)
+{
+    graphics_draw_line(surface, x - r, y, x + r, y, color);
+    graphics_draw_line(surface, x, y - r, x, y + r, color);
+}
+
+static void debug_draw_box_wireframe(surface_t *surface, T3DViewport *viewport, const T3DVec3 cornersWorld[8], uint32_t color)
+{
+    // Removed the local corners definition as we are using cornersWorld directly
+
+    T3DVec3 screen[8];
+    for (int i = 0; i < 8; i++) {
+        t3d_viewport_calc_viewspace_pos(viewport, &screen[i], &cornersWorld[i]);
+    }
+
+    static const uint8_t edges[12][2] = {
+        {0, 1}, {1, 2}, {2, 3}, {3, 0},
+        {4, 5}, {5, 6}, {6, 7}, {7, 4},
+        {0, 4}, {1, 5}, {2, 6}, {3, 7},
+    };
+
+    for (int e = 0; e < 12; e++) {
+        int a = edges[e][0];
+        int b = edges[e][1];
+        int x0 = (int)screen[a].v[0];
+        int y0 = (int)screen[a].v[1];
+        int x1 = (int)screen[b].v[0];
+        int y1 = (int)screen[b].v[1];
+        graphics_draw_line(surface, x0, y0, x1, y1, color);
+    }
+}
+
+static void debug_mat4fp_to_mat4(T3DMat4 *out, const T3DMat4FP *in)
+{
+    for (uint32_t col = 0; col < 4; col++) {
+        for (uint32_t row = 0; row < 4; row++) {
+            // Note: t3d_mat4fp_get_float's parameter names are misleading; it indexes [column][row].
+            out->m[col][row] = t3d_mat4fp_get_float(in, col, row);
+        }
+    }
+}
+
+static void debug_draw_polyline3d(surface_t *surface, T3DViewport *viewport, const T3DVec3 *pointsWorld, int count, bool closed, uint32_t color)
+{
+    if (count < 2) return;
+
+    T3DVec3 prevScreen;
+    t3d_viewport_calc_viewspace_pos(viewport, &prevScreen, &pointsWorld[0]);
+    for (int i = 1; i < count; i++) {
+        T3DVec3 curScreen;
+        t3d_viewport_calc_viewspace_pos(viewport, &curScreen, &pointsWorld[i]);
+        graphics_draw_line(surface,
+            (int)prevScreen.v[0], (int)prevScreen.v[1],
+            (int)curScreen.v[0], (int)curScreen.v[1],
+            color);
+        prevScreen = curScreen;
+    }
+
+    if (closed) {
+        T3DVec3 firstScreen;
+        t3d_viewport_calc_viewspace_pos(viewport, &firstScreen, &pointsWorld[0]);
+        graphics_draw_line(surface,
+            (int)prevScreen.v[0], (int)prevScreen.v[1],
+            (int)firstScreen.v[0], (int)firstScreen.v[1],
+            color);
+    }
+}
+
+static void debug_draw_circle3d(surface_t *surface, T3DViewport *viewport, const T3DVec3 *centerWorld, const T3DVec3 *axisA, const T3DVec3 *axisB, float radius, uint32_t color)
+{
+    const int segments = 16;
+    T3DVec3 pts[segments];
+    for (int i = 0; i < segments; i++) {
+        float a = ((float)i / (float)segments) * (2.0f * T3D_PI);
+        float ca = cosf(a);
+        float sa = sinf(a);
+        pts[i] = (T3DVec3){{
+            centerWorld->v[0] + (axisA->v[0] * ca + axisB->v[0] * sa) * radius,
+            centerWorld->v[1] + (axisA->v[1] * ca + axisB->v[1] * sa) * radius,
+            centerWorld->v[2] + (axisA->v[2] * ca + axisB->v[2] * sa) * radius,
+        }};
+    }
+    debug_draw_polyline3d(surface, viewport, pts, segments, true, color);
+}
+
+static void debug_draw_player_capsule(surface_t *surface, T3DViewport *viewport, const Player *player, const T3DModel *playerModel, const T3DMat4FP *playerModelMat, uint32_t color)
+{
+    if (!player || !playerModel || !playerModelMat) return;
+
+    // Use the baked AABB minY to define a stable "feet" point.
+    const float minY = s16_to_f32(playerModel->aabbMin[1]);
+    T3DMat4 matFloat;
+    debug_mat4fp_to_mat4(&matFloat, playerModelMat);
+
+    const T3DVec3 localFeet = (T3DVec3){{0.0f, minY, 0.0f}};
+    T3DVec4 feetW;
+    t3d_mat4_mul_vec3(&feetW, &matFloat, &localFeet);
+    T3DVec3 feetWorld = (T3DVec3){{feetW.v[0], feetW.v[1], feetW.v[2]}};
+
+    float radius = PLAYER_CAPSULE_RADIUS;
+    float height = PLAYER_CAPSULE_HEIGHT;
+    if (height < radius * 2.0f) height = radius * 2.0f;
+
+    const T3DVec3 up    = (T3DVec3){{0.0f, 1.0f, 0.0f}};
+    const T3DVec3 right = (T3DVec3){{1.0f, 0.0f, 0.0f}};
+    const T3DVec3 fwd   = (T3DVec3){{0.0f, 0.0f, 1.0f}};
+
+    // Capsule endpoints: bottom touches ground at feetWorld.
+    T3DVec3 bottom = feetWorld;
+    T3DVec3 top = (T3DVec3){{feetWorld.v[0], feetWorld.v[1] + height, feetWorld.v[2]}};
+
+    // Sphere centers.
+    T3DVec3 c0 = (T3DVec3){{bottom.v[0], bottom.v[1] + radius, bottom.v[2]}};
+    T3DVec3 c1 = (T3DVec3){{top.v[0],    top.v[1] - radius,    top.v[2]}};
+
+    // Draw orthogonal circles at each center.
+    debug_draw_circle3d(surface, viewport, &c0, &right, &fwd, radius, color);
+    debug_draw_circle3d(surface, viewport, &c0, &right, &up,  radius, color);
+    debug_draw_circle3d(surface, viewport, &c0, &fwd,   &up,  radius, color);
+
+    debug_draw_circle3d(surface, viewport, &c1, &right, &fwd, radius, color);
+    debug_draw_circle3d(surface, viewport, &c1, &right, &up,  radius, color);
+    debug_draw_circle3d(surface, viewport, &c1, &fwd,   &up,  radius, color);
+
+    // Connect centers with 4 cylinder lines.
+    const T3DVec3 offs[4] = {
+        (T3DVec3){{ radius, 0.0f, 0.0f}},
+        (T3DVec3){{-radius, 0.0f, 0.0f}},
+        (T3DVec3){{0.0f, 0.0f,  radius}},
+        (T3DVec3){{0.0f, 0.0f, -radius}},
+    };
+    for (int i = 0; i < 4; i++) {
+        T3DVec3 a = (T3DVec3){{c0.v[0] + offs[i].v[0], c0.v[1], c0.v[2] + offs[i].v[2]}};
+        T3DVec3 b = (T3DVec3){{c1.v[0] + offs[i].v[0], c1.v[1], c1.v[2] + offs[i].v[2]}};
+        T3DVec3 as, bs;
+        t3d_viewport_calc_viewspace_pos(viewport, &as, &a);
+        t3d_viewport_calc_viewspace_pos(viewport, &bs, &b);
+        graphics_draw_line(surface, (int)as.v[0], (int)as.v[1], (int)bs.v[0], (int)bs.v[1], color);
+    }
+
+    // Mark feet point.
+    T3DVec3 feetScreen;
+    t3d_viewport_calc_viewspace_pos(viewport, &feetScreen, &feetWorld);
+    uint32_t feetColor = graphics_make_color(0x00, 0xFF, 0x00, 0xFF);
+    debug_draw_marker(surface, (int)feetScreen.v[0], (int)feetScreen.v[1], 4, feetColor);
+}
+
+static void debug_draw_player_model_aabb(surface_t *surface, T3DViewport *viewport, const Player *player, const T3DModel *playerModel, const T3DMat4FP *playerModelMat, uint32_t color)
+{
+    if (!player || !playerModel || !playerModelMat) return;
+
+    const float minX = s16_to_f32(playerModel->aabbMin[0]);
+    const float minY = s16_to_f32(playerModel->aabbMin[1]);
+    const float minZ = s16_to_f32(playerModel->aabbMin[2]);
+    const float maxX = s16_to_f32(playerModel->aabbMax[0]);
+    const float maxY = s16_to_f32(playerModel->aabbMax[1]);
+    const float maxZ = s16_to_f32(playerModel->aabbMax[2]);
+
+    const T3DVec3 localCorners[8] = {
+        (T3DVec3){{minX, minY, minZ}},
+        (T3DVec3){{maxX, minY, minZ}},
+        (T3DVec3){{maxX, minY, maxZ}},
+        (T3DVec3){{minX, minY, maxZ}},
+        (T3DVec3){{minX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, maxZ}},
+        (T3DVec3){{minX, maxY, maxZ}},
+    };
+
+    T3DMat4 matFloat;
+    debug_mat4fp_to_mat4(&matFloat, playerModelMat);
+
+    T3DVec3 cornersWorld[8];
+    for (int i = 0; i < 8; i++) {
+        T3DVec4 out;
+        t3d_mat4_mul_vec3(&out, &matFloat, &localCorners[i]);
+        cornersWorld[i] = (T3DVec3){{out.v[0], out.v[1], out.v[2]}};
+    }
+
+    debug_draw_box_wireframe(surface, viewport, cornersWorld, color);
+
+    // Extra: draw markers for model origin and AABB-bottom ("feet") to help reason about pivot vs ground.
+    {
+        const T3DVec3 localOrigin = (T3DVec3){{0.0f, 0.0f, 0.0f}};
+        const T3DVec3 localFeet   = (T3DVec3){{0.0f, minY, 0.0f}};
+
+        T3DVec4 originW, feetW;
+        t3d_mat4_mul_vec3(&originW, &matFloat, &localOrigin);
+        t3d_mat4_mul_vec3(&feetW, &matFloat, &localFeet);
+
+        T3DVec3 originWorld = (T3DVec3){{originW.v[0], originW.v[1], originW.v[2]}};
+        T3DVec3 feetWorld   = (T3DVec3){{feetW.v[0], feetW.v[1], feetW.v[2]}};
+
+        T3DVec3 originScreen, feetScreen;
+        t3d_viewport_calc_viewspace_pos(viewport, &originScreen, &originWorld);
+        t3d_viewport_calc_viewspace_pos(viewport, &feetScreen, &feetWorld);
+
+        int ox = (int)originScreen.v[0];
+        int oy = (int)originScreen.v[1];
+        int fx = (int)feetScreen.v[0];
+        int fy = (int)feetScreen.v[1];
+
+        // Origin marker and a line to the "feet" point.
+        debug_draw_marker(surface, ox, oy, 4, color);
+        graphics_draw_line(surface, ox, oy, fx, fy, color);
+
+        // Feet marker in white.
+        uint32_t feetColor = graphics_make_color(0xFF, 0xFF, 0xFF, 0xFF);
+        debug_draw_marker(surface, fx, fy, 3, feetColor);
+    }
+}
+
+static void debug_draw_model_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DModel *model, const T3DMat4 *modelMat, uint32_t color)
+{
+    if (!surface || !viewport || !model || !modelMat) return;
+
+    const float minX = s16_to_f32(model->aabbMin[0]);
+    const float minY = s16_to_f32(model->aabbMin[1]);
+    const float minZ = s16_to_f32(model->aabbMin[2]);
+    const float maxX = s16_to_f32(model->aabbMax[0]);
+    const float maxY = s16_to_f32(model->aabbMax[1]);
+    const float maxZ = s16_to_f32(model->aabbMax[2]);
+
+    const T3DVec3 localCorners[8] = {
+        (T3DVec3){{minX, minY, minZ}},
+        (T3DVec3){{maxX, minY, minZ}},
+        (T3DVec3){{maxX, minY, maxZ}},
+        (T3DVec3){{minX, minY, maxZ}},
+        (T3DVec3){{minX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, minZ}},
+        (T3DVec3){{maxX, maxY, maxZ}},
+        (T3DVec3){{minX, maxY, maxZ}},
+    };
+
+    T3DVec3 cornersWorld[8];
+    for (int i = 0; i < 8; i++) {
+        T3DVec4 out;
+        t3d_mat4_mul_vec3(&out, modelMat, &localCorners[i]);
+        cornersWorld[i] = (T3DVec3){{out.v[0], out.v[1], out.v[2]}};
+    }
+
+    debug_draw_box_wireframe(surface, viewport, cornersWorld, color);
+}
 
 T3DVec3 spawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
@@ -135,7 +472,9 @@ void game_start()
     modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
-
+    debugf("Banana model AABB: Min(%d, %d, %d) Max(%d, %d, %d)\n",
+           modelBanana->aabbMin[0], modelBanana->aabbMin[1], modelBanana->aabbMin[2],
+           modelBanana->aabbMax[0], modelBanana->aabbMax[1], modelBanana->aabbMax[2]);
     rspq_block_begin();
     t3d_matrix_push(hitbubbleFP);
     t3d_model_draw(modelHitbubble);
@@ -255,7 +594,8 @@ int main(void)
         t3d_viewport_look_at(&viewport, &camPos, &camTarget, &(T3DVec3){{0, 1, 0}});
 
         // ======== Draw (3D) ======== //
-        rdpq_attach(display_get(), depthBuffer);
+        surface_t *surface = display_get();
+        rdpq_attach(surface, depthBuffer);
         t3d_frame_start();
         t3d_viewport_attach(&viewport);
 
@@ -280,6 +620,18 @@ int main(void)
         {
             menuSelection = 0;
             gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
+        }
+
+        if (joypad1_btn.l) {
+            debugDrawPlayerAABBs = !debugDrawPlayerAABBs;
+        }
+
+        if (joypad1_btn.r) {
+            debugDrawPlayerCapsules = !debugDrawPlayerCapsules;
+        }
+
+        if (joypad1_btn.c_down) {
+            debugDrawMapCandidates = !debugDrawMapCandidates;
         }
 
         
@@ -525,6 +877,99 @@ int main(void)
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
         rdpq_sync_pipe(); // Hardware crashes otherwise
-        rdpq_detach_show();
+
+        // Optional CPU debug overlay: draw bounds/colliders (wireframe).
+        // We must wait for the RDP to finish before touching the framebuffer.
+        if ((debugDrawPlayerAABBs || debugDrawPlayerCapsules || debugDrawMapCandidates) && gameMode == GAME_MODE_PLAY && (modelBanana || modelMap)) {
+            rdpq_detach_wait();
+
+            // Map AABB (model-space == world-space here because we draw the map with identity).
+            if (debugDrawPlayerAABBs && modelMap) {
+                T3DMat4 identity = {0};
+                identity.m[0][0] = 1.0f;
+                identity.m[1][1] = 1.0f;
+                identity.m[2][2] = 1.0f;
+                identity.m[3][3] = 1.0f;
+                uint32_t mapColor = graphics_make_color(0xFF, 0xFF, 0xFF, 0xFF);
+                debug_draw_model_aabb_mat4(surface, &viewport, modelMap, &identity, mapColor);
+            }
+
+            // Broadphase: capsule-derived AABB vs map object AABBs (draw candidate objects).
+            if (debugDrawMapCandidates && modelMap && modelBanana) {
+                T3DMat4 mapIdentity = {0};
+                mapIdentity.m[0][0] = 1.0f;
+                mapIdentity.m[1][1] = 1.0f;
+                mapIdentity.m[2][2] = 1.0f;
+                mapIdentity.m[3][3] = 1.0f;
+
+                uint32_t queryColor = graphics_make_color(0x00, 0xFF, 0xFF, 0xFF);
+                uint32_t candColor  = graphics_make_color(0x80, 0xFF, 0xFF, 0xFF);
+
+                static float lastPrint = 0.0f;
+                int totalCandidates = 0;
+
+                for (int p = 0; p < 4; p++) {
+                    if (!players[p].alive) continue;
+
+                    T3DVec3 feetWorld;
+                    debug_get_model_feet_world(&feetWorld, modelBanana, &players[p].modelMatFP[frameIdx]);
+
+                    AabbF query;
+                    aabbf_from_capsule(&query, &feetWorld, PLAYER_CAPSULE_RADIUS, PLAYER_CAPSULE_HEIGHT);
+
+                    // Draw the query AABB.
+                    debug_draw_aabbf(surface, &viewport, &query, queryColor);
+
+                    // Iterate all map objects and draw those whose AABB overlaps query.
+                    int playerCandidates = 0;
+                    T3DModelIter it = t3d_model_iter_create(modelMap, T3D_CHUNK_TYPE_OBJECT);
+                    while (t3d_model_iter_next(&it)) {
+                        const T3DObject *obj = it.object;
+                        AabbF objAabb = {
+                            .min = (T3DVec3){{s16_to_f32(obj->aabbMin[0]), s16_to_f32(obj->aabbMin[1]), s16_to_f32(obj->aabbMin[2])}},
+                            .max = (T3DVec3){{s16_to_f32(obj->aabbMax[0]), s16_to_f32(obj->aabbMax[1]), s16_to_f32(obj->aabbMax[2])}},
+                        };
+
+                        if (!aabbf_overlaps(&query, &objAabb)) continue;
+
+                        // Cap draws to avoid turning the frame into a line soup.
+                        if (playerCandidates < 64) {
+                            debug_draw_object_aabb_mat4(surface, &viewport, obj, &mapIdentity, candColor);
+                        }
+                        playerCandidates++;
+                    }
+
+                    totalCandidates += playerCandidates;
+                }
+
+                float now = get_time_s();
+                if (now - lastPrint > 0.5f) {
+                    debugf("Map broadphase candidates (sum over players): %d\n", totalCandidates);
+                    lastPrint = now;
+                }
+            }
+
+            uint32_t colors[4];
+            colors[0] = graphics_make_color(0xFF, 0x40, 0x40, 0xFF);
+            colors[1] = graphics_make_color(0x40, 0xFF, 0x40, 0xFF);
+            colors[2] = graphics_make_color(0x40, 0xA0, 0xFF, 0xFF);
+            colors[3] = graphics_make_color(0xFF, 0xFF, 0x40, 0xFF);
+
+            if (modelBanana) {
+                for (int i = 0; i < 4; i++) {
+                    if (!players[i].alive) continue;
+                    if (debugDrawPlayerAABBs) {
+                        debug_draw_player_model_aabb(surface, &viewport, &players[i], modelBanana, &players[i].modelMatFP[frameIdx], colors[i]);
+                    }
+                    if (debugDrawPlayerCapsules) {
+                        debug_draw_player_capsule(surface, &viewport, &players[i], modelBanana, &players[i].modelMatFP[frameIdx], colors[i]);
+                    }
+                }
+            }
+
+            display_show(surface);
+        } else {
+            rdpq_detach_show();
+        }
     }
 }
