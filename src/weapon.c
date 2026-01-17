@@ -10,6 +10,32 @@ extern Weapon pipes[];
 
 #define FB_COUNT 3
 
+// Weapon hitbox dimensions (world units). Tuned to roughly match the previous distance check.
+// Old logic was: distance(hitPoint, playerPos) < 50.
+// An AABB centered at hitPoint with half-extents ~50 gives comparable reach.
+static const float WEAPON_HIT_AABB_HALF_EXTENT_XZ = 10.0f;
+static const float WEAPON_HIT_AABB_HALF_EXTENT_Y  = 30.0f;
+
+static inline void weapon_refresh_aabb(Weapon *weapon)
+{
+    const T3DVec3 *center = (weapon->isAttack && weapon->hit) ? weapon->hit : &weapon->wepPos;
+
+    weapon->aabb.min.v[0] = center->v[0] - WEAPON_HIT_AABB_HALF_EXTENT_XZ;
+    weapon->aabb.max.v[0] = center->v[0] + WEAPON_HIT_AABB_HALF_EXTENT_XZ;
+    weapon->aabb.min.v[2] = center->v[2] - WEAPON_HIT_AABB_HALF_EXTENT_XZ;
+    weapon->aabb.max.v[2] = center->v[2] + WEAPON_HIT_AABB_HALF_EXTENT_XZ;
+    weapon->aabb.min.v[1] = center->v[1] - WEAPON_HIT_AABB_HALF_EXTENT_Y;
+    weapon->aabb.max.v[1] = center->v[1] + WEAPON_HIT_AABB_HALF_EXTENT_Y;
+}
+
+static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
+{
+    const float eps = 0.01f;
+    return (a->min.v[0] < (b->max.v[0] - eps) && a->max.v[0] > (b->min.v[0] + eps)) &&
+           (a->min.v[1] < (b->max.v[1] - eps) && a->max.v[1] > (b->min.v[1] + eps)) &&
+           (a->min.v[2] < (b->max.v[2] - eps) && a->max.v[2] > (b->min.v[2] + eps));
+}
+
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 {
     weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
@@ -24,6 +50,8 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     weapon->hit = malloc_uncached(sizeof(T3DVec3));
     if (weapon->hit)
         *weapon->hit = position;
+
+    weapon_refresh_aabb(weapon);
 
     // Record a matrix-free display list; caller pushes the correct matrix per frame.
     rspq_block_begin();
@@ -124,9 +152,32 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         else
         {
             pipe->attackFrame = 0;
+            pipe->isAttack = false;
             pitch = 0;
             if (pipe->hit)
                 *pipe->hit = pipe->wepPos;
+        }
+
+        // Keep weapon AABB in sync; during attacks it's centered at the hit point.
+        weapon_refresh_aabb(pipe);
+
+        // Apply weapon hits via AABB overlap against player AABBs.
+        if (pipe->isAttack)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                Player *target = &players[i];
+                if (!target->alive) continue;
+                if (target == p) continue;
+                if (target->isHittable != 0) continue;
+
+                if (!aabbf_overlaps(&pipe->aabb, &target->aabb)) continue;
+
+                target->isHittable = 15;
+                target->hitpoints -= pipe->damage;
+                if (target->hitpoints <= 0.0f)
+                    target->alive = false;
+            }
         }
 
         // Update the weapon's render matrix for this frame.
@@ -139,6 +190,9 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
     {
         if (pipe->hit)
             *pipe->hit = pipe->wepPos;
+
+        weapon_refresh_aabb(pipe);
+
         // keep model matrix in sync with world position when not equipped
         t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
                                   (float[3]){0.5f, 0.5f, 0.5f},

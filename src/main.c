@@ -9,6 +9,7 @@
 #include <libdragon.h>
 #include "entities.h"
 #include "util.h" 
+#include "collision.h"
 #define FB_COUNT 3
 
 // Debug rendering (CPU) of simple wireframe bounds.
@@ -22,10 +23,6 @@ static const float PLAYER_CAPSULE_HEIGHT = 90.0f; // total height including caps
 
 static inline float s16_to_f32(int16_t v) { return (float)v; }
 
-typedef struct {
-    T3DVec3 min;
-    T3DVec3 max;
-} AabbF;
 
 static void debug_mat4fp_to_mat4(T3DMat4 *out, const T3DMat4FP *in);
 static void debug_draw_box_wireframe(surface_t *surface, T3DViewport *viewport, const T3DVec3 cornersWorld[8], uint32_t color);
@@ -252,67 +249,12 @@ static void debug_draw_player_capsule(surface_t *surface, T3DViewport *viewport,
 
 static void debug_draw_player_model_aabb(surface_t *surface, T3DViewport *viewport, const Player *player, const T3DModel *playerModel, const T3DMat4FP *playerModelMat, uint32_t color)
 {
-    if (!player || !playerModel || !playerModelMat) return;
+    (void)playerModel;
+    (void)playerModelMat;
+    if (!player) return;
 
-    const float minX = s16_to_f32(playerModel->aabbMin[0]);
-    const float minY = s16_to_f32(playerModel->aabbMin[1]);
-    const float minZ = s16_to_f32(playerModel->aabbMin[2]);
-    const float maxX = s16_to_f32(playerModel->aabbMax[0]);
-    const float maxY = s16_to_f32(playerModel->aabbMax[1]);
-    const float maxZ = s16_to_f32(playerModel->aabbMax[2]);
-
-    const T3DVec3 localCorners[8] = {
-        (T3DVec3){{minX, minY, minZ}},
-        (T3DVec3){{maxX, minY, minZ}},
-        (T3DVec3){{maxX, minY, maxZ}},
-        (T3DVec3){{minX, minY, maxZ}},
-        (T3DVec3){{minX, maxY, minZ}},
-        (T3DVec3){{maxX, maxY, minZ}},
-        (T3DVec3){{maxX, maxY, maxZ}},
-        (T3DVec3){{minX, maxY, maxZ}},
-    };
-
-    T3DMat4 matFloat;
-    debug_mat4fp_to_mat4(&matFloat, playerModelMat);
-
-    T3DVec3 cornersWorld[8];
-    for (int i = 0; i < 8; i++) {
-        T3DVec4 out;
-        t3d_mat4_mul_vec3(&out, &matFloat, &localCorners[i]);
-        cornersWorld[i] = (T3DVec3){{out.v[0], out.v[1], out.v[2]}};
-    }
-
-    debug_draw_box_wireframe(surface, viewport, cornersWorld, color);
-
-    // Extra: draw markers for model origin and AABB-bottom ("feet") to help reason about pivot vs ground.
-    {
-        const T3DVec3 localOrigin = (T3DVec3){{0.0f, 0.0f, 0.0f}};
-        const T3DVec3 localFeet   = (T3DVec3){{0.0f, minY, 0.0f}};
-
-        T3DVec4 originW, feetW;
-        t3d_mat4_mul_vec3(&originW, &matFloat, &localOrigin);
-        t3d_mat4_mul_vec3(&feetW, &matFloat, &localFeet);
-
-        T3DVec3 originWorld = (T3DVec3){{originW.v[0], originW.v[1], originW.v[2]}};
-        T3DVec3 feetWorld   = (T3DVec3){{feetW.v[0], feetW.v[1], feetW.v[2]}};
-
-        T3DVec3 originScreen, feetScreen;
-        t3d_viewport_calc_viewspace_pos(viewport, &originScreen, &originWorld);
-        t3d_viewport_calc_viewspace_pos(viewport, &feetScreen, &feetWorld);
-
-        int ox = (int)originScreen.v[0];
-        int oy = (int)originScreen.v[1];
-        int fx = (int)feetScreen.v[0];
-        int fy = (int)feetScreen.v[1];
-
-        // Origin marker and a line to the "feet" point.
-        debug_draw_marker(surface, ox, oy, 4, color);
-        graphics_draw_line(surface, ox, oy, fx, fy, color);
-
-        // Feet marker in white.
-        uint32_t feetColor = graphics_make_color(0xFF, 0xFF, 0xFF, 0xFF);
-        debug_draw_marker(surface, fx, fy, 3, feetColor);
-    }
+    // Draw the gameplay/collision AABB (world-space) stored on the player.
+    debug_draw_aabbf(surface, viewport, &player->aabb, color);
 }
 
 static void debug_draw_model_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DModel *model, const T3DMat4 *modelMat, uint32_t color)
@@ -946,6 +888,14 @@ int main(void)
                 if (now - lastPrint > 0.5f) {
                     debugf("Map broadphase candidates (sum over players): %d\n", totalCandidates);
                     lastPrint = now;
+                }
+
+                // Also draw weapon AABBs while in C-down mode.
+                uint32_t weaponColors[2];
+                weaponColors[0] = graphics_make_color(0xFF, 0x00, 0xFF, 0xFF);
+                weaponColors[1] = graphics_make_color(0xFF, 0x80, 0xFF, 0xFF);
+                for (int w = 0; w < 2; w++) {
+                    debug_draw_aabbf(surface, &viewport, &pipes[w].aabb, weaponColors[w]);
                 }
             }
 

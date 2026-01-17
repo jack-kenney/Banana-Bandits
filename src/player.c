@@ -6,8 +6,29 @@
 #include <t3d/t3dskeleton.h>
 
 #define FB_COUNT 3
+#define PLAYER_AABB_HEIGHT 90.0f
+#define PLAYER_AABB_WIDTH 30.0f
 
 Player players[4];
+
+static inline void player_refresh_aabb(Player *player)
+{
+    player->aabb.min.v[0] = player->playerPos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[0] = player->playerPos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[2] = player->playerPos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[2] = player->playerPos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[1] = player->playerPos.v[1];
+    player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
+}
+
+static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
+{
+    // Use a small epsilon so "just touching" doesn't count as overlap.
+    const float eps = 0.01f;
+    return (a->min.v[0] < (b->max.v[0] - eps) && a->max.v[0] > (b->min.v[0] + eps)) &&
+           (a->min.v[1] < (b->max.v[1] - eps) && a->max.v[1] > (b->min.v[1] + eps)) &&
+           (a->min.v[2] < (b->max.v[2] - eps) && a->max.v[2] > (b->min.v[2] + eps));
+}
 
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
@@ -17,6 +38,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
     player->jumpFrame = 0;
+    player->asc = false;
     player->alive = true;
     player->isHittable = 0;
     player->hitpoints = 100.0f;
@@ -24,6 +46,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->attackFrame = 0;
     player->weapon = NULL;
     player->hasWeapon = false;
+    player_refresh_aabb(player);
     player->skel = malloc_uncached(sizeof(*player->skel));
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
     player->skelBlend = malloc_uncached(sizeof(*player->skel));
@@ -75,33 +98,64 @@ static void collision_detect(Player *player)
         player->isHittable -= 1;
     }
 
-    if (!player->attacking || !player->hasWeapon || !player->weapon)
-        return;
-
     for (int i = 0; i < 4; i++)
     {
-        if (&players[i] == player)
-            continue;
-        if (!players[i].alive)
-            continue;
+        // Resolve each pair only once (collision_detect runs per-player).
+        if (&players[i] <= player) continue;
+        if (!players[i].alive) continue;
 
-        for (int j = 0; j < 2; j++)
+        if (!aabbf_overlaps(&player->aabb, &players[i].aabb)) continue;
+
+        // Minimum-translation-vector (MTV) resolution in XZ.
+        const float aMinX = player->aabb.min.v[0];
+        const float aMaxX = player->aabb.max.v[0];
+        const float aMinZ = player->aabb.min.v[2];
+        const float aMaxZ = player->aabb.max.v[2];
+
+        const float bMinX = players[i].aabb.min.v[0];
+        const float bMaxX = players[i].aabb.max.v[0];
+        const float bMinZ = players[i].aabb.min.v[2];
+        const float bMaxZ = players[i].aabb.max.v[2];
+
+        // Positive penetration depth along each axis (if overlapping).
+        float penX = fminf(aMaxX - bMinX, bMaxX - aMinX);
+        float penZ = fminf(aMaxZ - bMinZ, bMaxZ - aMinZ);
+
+        if (penX <= 0.0f || penZ <= 0.0f) continue;
+
+        // Add a tiny bias so we don't end up exactly touching and re-trigger due to float jitter.
+        const float sepBias = 0.05f;
+
+        // Choose the axis of least penetration.
+        float pushX = 0.0f;
+        float pushZ = 0.0f;
+        if (penX < penZ)
         {
-            if (&pipes[j] != player->weapon)
-                continue;
-            if (!pipes[j].hit)
-                continue;
-
-            float diff = t3d_vec3_distance(pipes[j].hit, &players[i].playerPos);
-            if (diff < 50.0f && players[i].isHittable == 0)
-            {
-                players[i].isHittable = 15;
-                players[i].hitpoints -= player->weapon->damage;
-                if (players[i].hitpoints <= 0.0f)
-                    players[i].alive = false;
-            }
+            float aCenterX = 0.5f * (aMinX + aMaxX);
+            float bCenterX = 0.5f * (bMinX + bMaxX);
+            float s = (aCenterX < bCenterX) ? -1.0f : 1.0f;
+            pushX = s * (penX + sepBias);
         }
+        else
+        {
+            float aCenterZ = 0.5f * (aMinZ + aMaxZ);
+            float bCenterZ = 0.5f * (bMinZ + bMaxZ);
+            float s = (aCenterZ < bCenterZ) ? -1.0f : 1.0f;
+            pushZ = s * (penZ + sepBias);
+        }
+
+        // Split the correction between both players.
+        player->playerPos.v[0] += 0.5f * pushX;
+        player->playerPos.v[2] += 0.5f * pushZ;
+        players[i].playerPos.v[0] -= 0.5f * pushX;
+        players[i].playerPos.v[2] -= 0.5f * pushZ;
+
+        player_refresh_aabb(player);
+        player_refresh_aabb(&players[i]);
     }
+
+    if (!player->attacking || !player->hasWeapon || !player->weapon)
+        return;
 }
 
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx)
@@ -132,6 +186,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
     player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
 
+
     const float BOX_SIZE = 240.0f;
     if (player->playerPos.v[0] < -BOX_SIZE)
         player->playerPos.v[0] = -BOX_SIZE;
@@ -141,7 +196,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         player->playerPos.v[2] = -BOX_SIZE;
     if (player->playerPos.v[2] > BOX_SIZE)
         player->playerPos.v[2] = BOX_SIZE;
-    collision_detect(player);
     if (joybtns.b && !player->attacking)
     {
         player->attacking = true;
@@ -181,6 +235,12 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->asc = false;
         }
     }
+
+    // Keep the gameplay/debug AABB tied to the final position (including vertical movement).
+    player_refresh_aabb(player);
+
+    // Run collision after AABB refresh so overlap tests use current frame positions.
+    collision_detect(player);
     if (joypad.btn.c_right)
     {
         camPos->v[1] += 2.0f;

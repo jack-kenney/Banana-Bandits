@@ -5,6 +5,7 @@
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
 #include <t3d/t3dskeleton.h>
+#include "collision.h"
 
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
@@ -31,6 +32,7 @@ typedef struct
     Weapon *weapon;
     bool hasWeapon;
     int attackFrame;
+    AabbF aabb;
 } Player;
 
 struct Weapon
@@ -49,6 +51,7 @@ struct Weapon
     T3DVec3 *hit;
     int bobFrame;
     int boneIndexWeapon;
+    AabbF aabb;
 };
 
 extern Player players[4];
