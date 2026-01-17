@@ -10,22 +10,30 @@ extern Weapon pipes[];
 
 #define FB_COUNT 3
 
-// Weapon hitbox dimensions (world units). Tuned to roughly match the previous distance check.
-// Old logic was: distance(hitPoint, playerPos) < 50.
-// An AABB centered at hitPoint with half-extents ~50 gives comparable reach.
+// Weapon AABB dimensions (world units).
+// - When attacking: represents the active hitbox (centered at `weapon->hit`).
+// - Otherwise: represents the pickup volume (centered at `weapon->wepPos`).
 static const float WEAPON_HIT_AABB_HALF_EXTENT_XZ = 10.0f;
 static const float WEAPON_HIT_AABB_HALF_EXTENT_Y  = 30.0f;
+static const float WEAPON_PICKUP_AABB_HALF_EXTENT_XZ = 15.0f;
+static const float WEAPON_PICKUP_AABB_HALF_EXTENT_Y  = 45.0f;
+static const float WEAPON_AABB_Y_OFFSET = 50.0f;
 
-static inline void weapon_refresh_aabb(Weapon *weapon)
+void weapon_refresh_aabb(Weapon *weapon)
 {
-    const T3DVec3 *center = (weapon->isAttack && weapon->hit) ? weapon->hit : &weapon->wepPos;
+    const bool useHitbox = (weapon->isAttack && weapon->hit);
+    const T3DVec3 *center = useHitbox ? weapon->hit : &weapon->wepPos;
 
-    weapon->aabb.min.v[0] = center->v[0] - WEAPON_HIT_AABB_HALF_EXTENT_XZ;
-    weapon->aabb.max.v[0] = center->v[0] + WEAPON_HIT_AABB_HALF_EXTENT_XZ;
-    weapon->aabb.min.v[2] = center->v[2] - WEAPON_HIT_AABB_HALF_EXTENT_XZ;
-    weapon->aabb.max.v[2] = center->v[2] + WEAPON_HIT_AABB_HALF_EXTENT_XZ;
-    weapon->aabb.min.v[1] = center->v[1] - WEAPON_HIT_AABB_HALF_EXTENT_Y;
-    weapon->aabb.max.v[1] = center->v[1] + WEAPON_HIT_AABB_HALF_EXTENT_Y;
+    const float hx = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_XZ : WEAPON_PICKUP_AABB_HALF_EXTENT_XZ;
+    const float hy = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_Y  : WEAPON_PICKUP_AABB_HALF_EXTENT_Y;
+
+    weapon->aabb.min.v[0] = center->v[0] - hx;
+    weapon->aabb.max.v[0] = center->v[0] + hx;
+    weapon->aabb.min.v[2] = center->v[2] - hx;
+    weapon->aabb.max.v[2] = center->v[2] + hx;
+    const float cy = center->v[1] + WEAPON_AABB_Y_OFFSET;
+    weapon->aabb.min.v[1] = cy - hy;
+    weapon->aabb.max.v[1] = cy + hy;
 }
 
 static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)

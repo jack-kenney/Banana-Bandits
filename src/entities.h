@@ -67,4 +67,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
 void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx);
 void weapon_cleanup(Weapon *weapon);
 
+// Updates weapon->aabb based on current state (pickup vs attack hitbox)
+void weapon_refresh_aabb(Weapon *weapon);
+
 #endif // ENTITIES_H

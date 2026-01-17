@@ -76,21 +76,17 @@ static void collision_detect(Player *player)
 {
     for (int i = 0; i < 2; i++)
     {
+        if (player == pipes[i].attachedPlayer) continue;
+        if (player->hasWeapon) continue;
+        if (pipes[i].equipped) continue;
 
-        if (player != pipes[i].attachedPlayer)
-        {
-            float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
-            if (dist < 15.0f && !player->hasWeapon)
-            {
-                if (!pipes[i].equipped)
-                {
-                    player->hasWeapon = true;
-                    player->weapon = &pipes[i];
-                    pipes[i].equipped = true;
-                    pipes[i].attachedPlayer = player;
-                }
-            }
-        }
+        // Use AABB overlap for pickup (player world AABB vs weapon pickup AABB).
+        if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb)) continue;
+
+        player->hasWeapon = true;
+        player->weapon = &pipes[i];
+        pipes[i].equipped = true;
+        pipes[i].attachedPlayer = player;
     }
 
     if (player->isHittable > 0)
@@ -239,8 +235,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     // Keep the gameplay/debug AABB tied to the final position (including vertical movement).
     player_refresh_aabb(player);
 
-    // Run collision after AABB refresh so overlap tests use current frame positions.
-    collision_detect(player);
     if (joypad.btn.c_right)
     {
         camPos->v[1] += 2.0f;
@@ -255,12 +249,53 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     {
         if (player->hasWeapon)
         {
-            player->weapon->equipped = false;
-            player->weapon->attachedPlayer = NULL;
+            Weapon *dropped = player->weapon;
+
+            dropped->equipped = false;
+            dropped->attachedPlayer = NULL;
+            dropped->isAttack = false;
+            dropped->attackFrame = 0;
+
+            // Drop it a bit in front of the player so it's out of pickup overlap.
+            T3DVec3 dropDir = player->moveDir;
+            dropDir.v[1] = 0.0f;
+            float len2 = t3d_vec3_len2(&dropDir);
+            if (len2 < 0.0001f)
+            {
+                // If not moving, use facing direction from rotY.
+                dropDir.v[0] = sinf(player->rotY);
+                dropDir.v[1] = 0.0f;
+                dropDir.v[2] = cosf(player->rotY);
+            }
+            else
+            {
+                float invLen = 1.0f / sqrtf(len2);
+                t3d_vec3_scale(&dropDir, &dropDir, invLen);
+            }
+
+            const float dropDistance = 70.0f;
+            dropped->wepPos.v[0] = player->playerPos.v[0] + dropDir.v[0] * dropDistance;
+            dropped->wepPos.v[2] = player->playerPos.v[2] + dropDir.v[2] * dropDistance;
+            dropped->wepPos.v[1] = 0.15f;
+
+            // Keep within arena bounds.
+            const float BOX_SIZE = 240.0f;
+            if (dropped->wepPos.v[0] < -BOX_SIZE) dropped->wepPos.v[0] = -BOX_SIZE;
+            if (dropped->wepPos.v[0] >  BOX_SIZE) dropped->wepPos.v[0] =  BOX_SIZE;
+            if (dropped->wepPos.v[2] < -BOX_SIZE) dropped->wepPos.v[2] = -BOX_SIZE;
+            if (dropped->wepPos.v[2] >  BOX_SIZE) dropped->wepPos.v[2] =  BOX_SIZE;
+
+            if (dropped->hit)
+                *dropped->hit = dropped->wepPos;
+            weapon_refresh_aabb(dropped);
+
             player->hasWeapon = false;
             player->weapon = NULL;
         }
     }
+
+    // Run collision after AABB refresh so overlap tests use current frame positions.
+    collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
                               (float[3]){0.125f, 0.125f, 0.125f},
                               (float[3]){0.0f, -player->rotY, 0},
