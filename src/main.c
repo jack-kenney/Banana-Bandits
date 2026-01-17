@@ -34,6 +34,11 @@ static bool debugDrawMapCandidates = false;
 // during mixing. Use it as a lightweight RSP contention indicator.
 extern int64_t __mixer_profile_rsp;
 
+// rspq_profile uses deferred callbacks to accumulate data. Those callbacks are
+// normally processed during rspq_wait/syncpoint waits; for an in-game HUD we
+// poll them opportunistically while the debug overlay is enabled.
+extern bool __rspq_deferred_poll(void);
+
 typedef struct {
     uint64_t cpu_frame_us;
     uint64_t cpu_mixer_wait_us;
@@ -394,6 +399,13 @@ int main(void)
 
         // Update perf stats from the previous frame.
         {
+            if (debugDrawMapCandidates) {
+                // Process a few deferred callbacks without blocking.
+                for (int i = 0; i < 4; i++) {
+                    if (!__rspq_deferred_poll()) break;
+                }
+            }
+
             uint64_t mix_ticks = (uint64_t)__mixer_profile_rsp;
             perf_last.cpu_mixer_wait_us = ticks_to_us(mix_ticks - perf_prev_mixer_ticks);
             perf_prev_mixer_ticks = mix_ticks;
