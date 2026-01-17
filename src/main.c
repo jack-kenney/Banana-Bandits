@@ -354,10 +354,6 @@ void game_init()
     t3d_vec3_norm(&lightDirVec);
     gameMode = GAME_MODE_MENU;
     wav64_open(&dominating, "rom:/dominating.wav64");
-    debugf("Loaded dominating.wav64: %uch %ubit %.1fHz\n",
-        (unsigned)dominating.wave.channels,
-        (unsigned)dominating.wave.bits,
-        dominating.wave.frequency);
     mixer_ch_set_vol(SFX_CH, 0.75f, 0.75f);
     wav64_play(&dominating, SFX_CH);
 
@@ -642,6 +638,7 @@ int main(void)
                 if(menuSelection > 2) menuSelection = 2;
                 float cursorX = posX - 10;
                 float cursorY = 60 + (10 * menuSelection);
+                rdpq_sync_pipe();
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "GAME PAUSED");
                 posY += 20;
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Resume Game");
@@ -691,6 +688,7 @@ int main(void)
                 if(menuSelection > 1) menuSelection = 1;
                 float cursorX = posX - 10;
                 float cursorY = 60 + (10 * menuSelection);
+                rdpq_sync_pipe();
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Banana Bandits");
                 posY += 20;
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Start Game");
@@ -731,8 +729,10 @@ int main(void)
             break;
             case (GAME_MODE_END): {
                 rspq_block_run(dplMap);
+                debugDrawMapCandidates = false;
                 float posX = 127;
                 float posY = 100;
+                rdpq_sync_pipe();
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Game Over!");
                 posY += 20;
                 rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", *winner + 1);
@@ -751,6 +751,10 @@ int main(void)
 
         // Debug overlay: CPU/RSP performance summary.
         if (debugDrawMapCandidates) {
+            // Ensure the RDP is in a safe state before switching to 2D/text.
+            // This matters especially on frames where we break out of gameplay
+            // early (eg: winner detected) and skip the usual 2D sync.
+            rdpq_sync_pipe();
             const float cpu_ms = (float)perf_last.cpu_frame_us / 1000.0f;
             const float mix_ms = (float)perf_last.cpu_mixer_wait_us / 1000.0f;
 
