@@ -12,6 +12,19 @@
 #include "collision.h"
 #define FB_COUNT 3
 
+// Reserve a safe mixer channel for SFX. Stereo waveforms need ch+1, so avoid
+// using the very last channel.
+#define SFX_CH 30
+
+// Pump a small number of audio buffers. This helps prevent underruns when a
+// frame takes longer (gameplay) without stalling too long in one spot.
+static inline void audio_pump(int max_buffers)
+{
+    for (int i = 0; i < max_buffers && audio_can_write(); i++) {
+        mixer_try_play();
+    }
+}
+
 // Debug rendering (CPU) of simple wireframe bounds.
 
 static bool debugDrawMapCandidates = false;
@@ -124,6 +137,8 @@ int *winner;
 float HP0, HP1, HP2, HP3, lastTime;
 sprite_t *spriteBanana;
 bool gameCleanedUp = false;
+xm64player_t musicPlayer;
+wav64_t dominating;
 
 T3DAnim animPunch[4], animIdle[4];
 enum GameMode {
@@ -215,7 +230,7 @@ void game_start()
 
     winner = malloc_uncached(sizeof(int));
     *winner = -1;
-    modelWeapon = t3d_model_load("rom:/pipe.t3dm");
+    modelWeapon = t3d_model_load("rom:/pipe2.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
@@ -278,8 +293,13 @@ void game_init()
     joypad_init();
     timer_init();
     rdpq_init();
-    audio_init(32000, 3);
+    // More buffers = less chance of underruns during heavy frames (at the
+    // cost of a bit more latency).
+    audio_init(44100, 4);
     mixer_init(32);
+    mixer_set_vol(1.0f);
+    debugf("Audio: freq=%dHz buf=%d samples can_write=%d\n",
+        audio_get_frequency(), audio_get_buffer_length(), (int)audio_can_write());
     dfs_init(DFS_DEFAULT_LOCATION);
     //console_init();
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS);
@@ -291,15 +311,23 @@ void game_init()
     lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&lightDirVec);
     gameMode = GAME_MODE_MENU;
+    wav64_open(&dominating, "rom:/dominating.wav64");
+    debugf("Loaded dominating.wav64: %uch %ubit %.1fHz\n",
+        (unsigned)dominating.wave.channels,
+        (unsigned)dominating.wave.bits,
+        dominating.wave.frequency);
+    mixer_ch_set_vol(SFX_CH, 0.75f, 0.75f);
+    wav64_play(&dominating, SFX_CH);
 
-
+    // Prime a few buffers so playback starts immediately.
+    audio_pump(2);
     modelMap = t3d_model_load("rom:/map1.t3dm");
     rdpq_font_t* fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
     rdpq_font_style(fnt, STYLE_TITLE, &(rdpq_fontstyle_t){RGBA32(0xAA, 0xAA, 0xFF, 0xFF)});
     rdpq_font_style(fnt, STYLE_GREY,  &(rdpq_fontstyle_t){RGBA32(0x66, 0x66, 0x66, 0xFF)});
     rdpq_font_style(fnt, STYLE_GREEN, &(rdpq_fontstyle_t){RGBA32(0x39, 0xBF, 0x1F, 0xFF)});
     rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO, fnt);
-
+ 
     rspq_block_begin();
     // t3d_model_draw(modelShadow);
     // t3d_model_draw(modelCrystal);
@@ -325,11 +353,16 @@ int main(void)
     // TODO: figure out how to limit framerate.
     while (1)
     {
+        // Pump audio early in the frame (before RSP-heavy work).
+        // Keep it small to avoid fighting with the renderer.
+        audio_pump(1);
+
         // Keep track of frame index for animation matrices(buffered)
         frameIdx = (frameIdx + 1) % FB_COUNT;
         float newTime = get_time_s();
         float deltaTime = newTime - lastTime;
         lastTime = newTime;
+        debugf("Frame Time: %.4f s (%.2f FPS)\n", deltaTime, 1.0f / deltaTime);
 
         // Update global Y rotation for weapons
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
@@ -370,6 +403,7 @@ int main(void)
         }
 
         if (joypad1_btn.c_down) {
+            wav64_play(&dominating, SFX_CH);
             debugDrawMapCandidates = !debugDrawMapCandidates;
         }
 
@@ -575,6 +609,7 @@ int main(void)
                 if(joypad1_btn.a) {
                     switch(menuSelection) {
                         case 0:
+                            wav64_play(&dominating, SFX_CH);
                             gameMode = GAME_MODE_PLAY;
                             game_start();
                             break;
@@ -612,6 +647,8 @@ int main(void)
             }
 
         }
+
+        // Audio pumping is done at end-of-frame after the display swap.
 
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
@@ -697,5 +734,9 @@ int main(void)
         } else {
             rdpq_detach_show();
         }
+
+        // Pump audio after graphics submission / swap, when the RSP is more
+        // likely to be idle.
+        audio_pump(2);
     }
 }
