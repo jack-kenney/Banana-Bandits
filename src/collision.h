@@ -10,4 +10,6 @@ typedef struct {
     T3DVec3 max;
 } AabbF;
 
+bool aabbf_overlaps(const AabbF *a, const AabbF *b);
+
 #endif

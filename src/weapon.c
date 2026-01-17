@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <t3d/t3dskeleton.h>
+#include "collision.h"
 
 extern Weapon pipes[];
 
@@ -36,13 +37,6 @@ void weapon_refresh_aabb(Weapon *weapon)
     weapon->aabb.max.v[1] = cy + hy;
 }
 
-static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
-{
-    const float eps = 0.01f;
-    return (a->min.v[0] < (b->max.v[0] - eps) && a->max.v[0] > (b->min.v[0] + eps)) &&
-           (a->min.v[1] < (b->max.v[1] - eps) && a->max.v[1] > (b->min.v[1] + eps)) &&
-           (a->min.v[2] < (b->max.v[2] - eps) && a->max.v[2] > (b->min.v[2] + eps));
-}
 
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 {

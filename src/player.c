@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <t3d/t3dskeleton.h>
+#include "collision.h"
 
 #define FB_COUNT 3
 #define PLAYER_AABB_HEIGHT 90.0f
@@ -20,7 +21,7 @@ static inline void player_refresh_aabb(Player *player)
     player->aabb.min.v[1] = player->playerPos.v[1];
     player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
 }
-
+/*
 static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
 {
     // Use a small epsilon so "just touching" doesn't count as overlap.
@@ -28,7 +29,7 @@ static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
     return (a->min.v[0] < (b->max.v[0] - eps) && a->max.v[0] > (b->min.v[0] + eps)) &&
            (a->min.v[1] < (b->max.v[1] - eps) && a->max.v[1] > (b->min.v[1] + eps)) &&
            (a->min.v[2] < (b->max.v[2] - eps) && a->max.v[2] > (b->min.v[2] + eps));
-}
+}*/
 
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
