@@ -13,7 +13,7 @@
 #define FB_COUNT 3
 
 // Debug rendering (CPU) of simple wireframe bounds.
-/*
+
 static bool debugDrawMapCandidates = false;
 
 static inline float s16_to_f32(int16_t v) { return (float)v; }
@@ -93,7 +93,7 @@ static void debug_draw_box_wireframe(surface_t *surface, T3DViewport *viewport, 
         graphics_draw_line(surface, x0, y0, x1, y1, color);
     }
 }
-*/
+
 T3DVec3 spawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, -100}},
@@ -369,9 +369,9 @@ int main(void)
             gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
         }
 
-        //if (joypad1_btn.c_down) {
-        //    debugDrawMapCandidates = !debugDrawMapCandidates;
-       // }
+        if (joypad1_btn.c_down) {
+            debugDrawMapCandidates = !debugDrawMapCandidates;
+        }
 
         
         // Draw map first (background)
@@ -619,7 +619,7 @@ int main(void)
 
         // Optional CPU debug overlay: draw bounds/colliders (wireframe).
         // We must wait for the RDP to finish before touching the framebuffer.
-        /*if (debugDrawMapCandidates && gameMode == GAME_MODE_PLAY && modelMap) {
+        if (debugDrawMapCandidates && gameMode == GAME_MODE_PLAY && modelMap) {
             rdpq_detach_wait();
 
             // Broadphase: capsule-derived AABB vs map object AABBs (draw candidate objects).
@@ -694,7 +694,8 @@ int main(void)
             }
 
             display_show(surface);
-        } else {*/
+        } else {
             rdpq_detach_show();
         }
     }
+}
