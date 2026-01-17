@@ -7,6 +7,7 @@
 #include <t3d/t3danim.h>
 #include <t3d/t3ddebug.h>
 #include <libdragon.h>
+#include <rspq_profile.h>
 #include "entities.h"
 #include "util.h" 
 #include "collision.h"
@@ -28,6 +29,38 @@ static inline void audio_pump(int max_buffers)
 // Debug rendering (CPU) of simple wireframe bounds.
 
 static bool debugDrawMapCandidates = false;
+
+// Mixer exposes a cumulative counter of CPU ticks spent waiting for the RSP
+// during mixing. Use it as a lightweight RSP contention indicator.
+extern int64_t __mixer_profile_rsp;
+
+typedef struct {
+    uint64_t cpu_frame_us;
+    uint64_t cpu_mixer_wait_us;
+
+    bool rspq_ok;
+    uint64_t rsp_frame_us;
+    uint64_t rdp_busy_us;
+
+    char top1_name[26];
+    uint64_t top1_us;
+    char top2_name[26];
+    uint64_t top2_us;
+} perf_stats_t;
+
+static perf_stats_t perf_last = {0};
+static uint64_t perf_prev_mixer_ticks = 0;
+static rspq_profile_data_t perf_prev_rspq = {0};
+
+static inline uint64_t ticks_to_us(uint64_t ticks)
+{
+    return (ticks * 1000000ULL) / (uint64_t)TICKS_PER_SECOND;
+}
+
+static inline uint64_t rcp_ticks_to_us(uint64_t ticks)
+{
+    return (ticks * 1000000ULL) / (uint64_t)RCP_FREQUENCY;
+}
 
 static inline float s16_to_f32(int16_t v) { return (float)v; }
 
@@ -301,6 +334,10 @@ void game_init()
     debugf("Audio: freq=%dHz buf=%d samples can_write=%d\n",
         audio_get_frequency(), audio_get_buffer_length(), (int)audio_can_write());
     dfs_init(DFS_DEFAULT_LOCATION);
+
+    // Start RSPQ profiler if available in the linked libdragon build.
+    // If libdragon was built without RSPQ_PROFILE, calls will be no-ops.
+    rspq_profile_start();
     //console_init();
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS);
     depthBuffer = display_get_zbuf();
@@ -353,6 +390,58 @@ int main(void)
     // TODO: figure out how to limit framerate.
     while (1)
     {
+        uint32_t cpu_frame_start = TICKS_READ();
+
+        // Update perf stats from the previous frame.
+        {
+            uint64_t mix_ticks = (uint64_t)__mixer_profile_rsp;
+            perf_last.cpu_mixer_wait_us = ticks_to_us(mix_ticks - perf_prev_mixer_ticks);
+            perf_prev_mixer_ticks = mix_ticks;
+
+            rspq_profile_data_t cur = {0};
+            rspq_profile_get_data(&cur);
+            // Only compute a delta if we have a new profiled frame.
+            if (cur.frame_count != 0 && cur.frame_count != perf_prev_rspq.frame_count) {
+                uint64_t dt_total = cur.total_ticks - perf_prev_rspq.total_ticks;
+                uint64_t dt_busy  = cur.rdp_busy_ticks - perf_prev_rspq.rdp_busy_ticks;
+                perf_last.rspq_ok = dt_total > 0;
+                perf_last.rsp_frame_us = rcp_ticks_to_us(dt_total);
+                perf_last.rdp_busy_us  = rcp_ticks_to_us(dt_busy);
+
+                // Find top two overlays/slots for this frame.
+                uint64_t top1 = 0, top2 = 0;
+                const char *top1n = NULL, *top2n = NULL;
+                for (int i = 0; i < RSPQ_PROFILE_SLOT_COUNT; i++) {
+                    const char *name = cur.slots[i].name;
+                    if (!name) continue;
+                    uint64_t dt = cur.slots[i].total_ticks - perf_prev_rspq.slots[i].total_ticks;
+                    if (dt > top1) {
+                        top2 = top1; top2n = top1n;
+                        top1 = dt;   top1n = name;
+                    } else if (dt > top2) {
+                        top2 = dt;   top2n = name;
+                    }
+                }
+
+                memset(perf_last.top1_name, 0, sizeof(perf_last.top1_name));
+                memset(perf_last.top2_name, 0, sizeof(perf_last.top2_name));
+                if (top1n) strncpy(perf_last.top1_name, top1n, sizeof(perf_last.top1_name) - 1);
+                if (top2n) strncpy(perf_last.top2_name, top2n, sizeof(perf_last.top2_name) - 1);
+                perf_last.top1_us = rcp_ticks_to_us(top1);
+                perf_last.top2_us = rcp_ticks_to_us(top2);
+
+                perf_prev_rspq = cur;
+            } else {
+                perf_last.rspq_ok = false;
+                perf_last.rsp_frame_us = 0;
+                perf_last.rdp_busy_us = 0;
+                perf_last.top1_name[0] = '\0';
+                perf_last.top2_name[0] = '\0';
+                perf_last.top1_us = 0;
+                perf_last.top2_us = 0;
+            }
+        }
+
         // Pump audio early in the frame (before RSP-heavy work).
         // Keep it small to avoid fighting with the renderer.
         audio_pump(1);
@@ -648,6 +737,40 @@ int main(void)
 
         }
 
+        // Debug overlay: CPU/RSP performance summary.
+        if (debugDrawMapCandidates) {
+            const float cpu_ms = (float)perf_last.cpu_frame_us / 1000.0f;
+            const float mix_ms = (float)perf_last.cpu_mixer_wait_us / 1000.0f;
+
+            rdpq_set_mode_standard();
+            float y = 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
+                "CPU frame: %5.2f ms  (mixer wait: %5.2f ms)", cpu_ms, mix_ms);
+            y += 10;
+
+            if (perf_last.rspq_ok) {
+                float rsp_ms = (float)perf_last.rsp_frame_us / 1000.0f;
+                float rdp_ms = (float)perf_last.rdp_busy_us / 1000.0f;
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
+                    "RSP frame: %5.2f ms  (RDP busy: %5.2f ms)", rsp_ms, rdp_ms);
+                y += 10;
+
+                if (perf_last.top1_name[0]) {
+                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
+                        "Top: %-24s %5.2f ms", perf_last.top1_name, (float)perf_last.top1_us / 1000.0f);
+                    y += 10;
+                }
+                if (perf_last.top2_name[0]) {
+                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
+                        "     %-24s %5.2f ms", perf_last.top2_name, (float)perf_last.top2_us / 1000.0f);
+                    y += 10;
+                }
+            } else {
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
+                    "RSPQ profiler: disabled/unavailable");
+            }
+        }
+
         // Audio pumping is done at end-of-frame after the display swap.
 
         syncPoint = rspq_syncpoint_new();
@@ -738,5 +861,13 @@ int main(void)
         // Pump audio after graphics submission / swap, when the RSP is more
         // likely to be idle.
         audio_pump(2);
+
+        // Tell the RSPQ profiler that a frame has completed. Do this only
+        // when the debug overlay is active to avoid overhead.
+        if (debugDrawMapCandidates) {
+            rspq_profile_next_frame();
+        }
+
+        perf_last.cpu_frame_us = ticks_to_us((uint32_t)(TICKS_READ() - cpu_frame_start));
     }
 }
