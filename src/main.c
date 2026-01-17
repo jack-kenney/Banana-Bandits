@@ -241,7 +241,7 @@ void game_cleanup()
     if (hitbubbleFP)
         free_uncached(hitbubbleFP);
     if (winner)
-        free_uncached(winner);
+        free(winner);
     hitbubbleFP = NULL;
     winner = NULL;
 
@@ -266,7 +266,7 @@ void game_start()
     if (modelBanana || modelWeapon || modelHitbubble || winner || hitbubbleFP || dplHitbubble)
         game_cleanup();
 
-    winner = malloc_uncached(sizeof(int));
+    winner = malloc(sizeof(int));
     *winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe2.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
@@ -355,7 +355,7 @@ void game_init()
     gameMode = GAME_MODE_MENU;
     wav64_open(&dominating, "rom:/dominating.wav64");
     mixer_ch_set_vol(SFX_CH, 0.75f, 0.75f);
-    wav64_play(&dominating, SFX_CH);
+    //wav64_play(&dominating, SFX_CH);
 
     // Prime a few buffers so playback starts immediately.
     audio_pump(2);
@@ -708,7 +708,6 @@ int main(void)
                 if(joypad1_btn.a) {
                     switch(menuSelection) {
                         case 0:
-                            wav64_play(&dominating, SFX_CH);
                             gameMode = GAME_MODE_PLAY;
                             game_start();
                             break;

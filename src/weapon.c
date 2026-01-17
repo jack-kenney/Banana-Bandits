@@ -8,6 +8,7 @@
 #include "collision.h"
 
 extern Weapon pipes[];
+extern wav64_t dominating;
 
 #define FB_COUNT 3
 
@@ -178,7 +179,10 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 target->isHittable = 15;
                 target->hitpoints -= pipe->damage;
                 if (target->hitpoints <= 0.0f)
+                {
+                    wav64_play(&dominating, 30);
                     target->alive = false;
+                }
             }
         }
 
