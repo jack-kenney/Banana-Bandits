@@ -16,9 +16,9 @@ extern wav64_t dominating;
 // - When attacking: represents the active hitbox (centered at `weapon->hit`).
 // - Otherwise: represents the pickup volume (centered at `weapon->wepPos`).
 static const float WEAPON_HIT_AABB_HALF_EXTENT_XZ = 10.0f;
-static const float WEAPON_HIT_AABB_HALF_EXTENT_Y  = 30.0f;
+static const float WEAPON_HIT_AABB_HALF_EXTENT_Y = 30.0f;
 static const float WEAPON_PICKUP_AABB_HALF_EXTENT_XZ = 15.0f;
-static const float WEAPON_PICKUP_AABB_HALF_EXTENT_Y  = 45.0f;
+static const float WEAPON_PICKUP_AABB_HALF_EXTENT_Y = 45.0f;
 static const float WEAPON_AABB_Y_OFFSET = 50.0f;
 
 void weapon_refresh_aabb(Weapon *weapon)
@@ -27,7 +27,7 @@ void weapon_refresh_aabb(Weapon *weapon)
     const T3DVec3 *center = useHitbox ? weapon->hit : &weapon->wepPos;
 
     const float hx = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_XZ : WEAPON_PICKUP_AABB_HALF_EXTENT_XZ;
-    const float hy = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_Y  : WEAPON_PICKUP_AABB_HALF_EXTENT_Y;
+    const float hy = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_Y : WEAPON_PICKUP_AABB_HALF_EXTENT_Y;
 
     weapon->aabb.min.v[0] = center->v[0] - hx;
     weapon->aabb.max.v[0] = center->v[0] + hx;
@@ -37,7 +37,6 @@ void weapon_refresh_aabb(Weapon *weapon)
     weapon->aabb.min.v[1] = cy - hy;
     weapon->aabb.max.v[1] = cy + hy;
 }
-
 
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 {
@@ -115,10 +114,10 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             T3DVec4 boneWorld;
             t3d_mat4_mul_vec3(&boneWorld, &playerMat, &bonePos);
             pipe->wepPos = (T3DVec3){{boneWorld.v[0], boneWorld.v[1], boneWorld.v[2]}};
-            //debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
-                   //p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
-            //debugf("Bone model space position: (%f, %f, %f)\n",
-                   //bonePos.v[0], bonePos.v[1], bonePos.v[2]);
+            // debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
+            // p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
+            // debugf("Bone model space position: (%f, %f, %f)\n",
+            // bonePos.v[0], bonePos.v[1], bonePos.v[2]);
         }
         else
         {
@@ -170,11 +169,15 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             for (int i = 0; i < 4; i++)
             {
                 Player *target = &players[i];
-                if (!target->alive) continue;
-                if (target == p) continue;
-                if (target->isHittable != 0) continue;
+                if (!target->alive)
+                    continue;
+                if (target == p)
+                    continue;
+                if (target->isHittable != 0)
+                    continue;
 
-                if (!aabbf_overlaps(&pipe->aabb, &target->aabb)) continue;
+                if (!aabbf_overlaps(&pipe->aabb, &target->aabb))
+                    continue;
 
                 target->isHittable = 15;
                 target->hitpoints -= pipe->damage;

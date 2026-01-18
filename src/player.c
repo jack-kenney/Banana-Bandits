@@ -22,11 +22,10 @@ static inline void player_refresh_aabb(Player *player)
     player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
 }
 
-
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
     player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
-    player->moveDir = (T3DVec3){{0,0,0}};
+    player->moveDir = (T3DVec3){{0, 0, 0}};
     player->playerPos = position;
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
@@ -43,7 +42,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->skel = malloc_uncached(sizeof(*player->skel));
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
     player->skelBlend = malloc_uncached(sizeof(*player->skel));
-    *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices    
+    *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices
     player->handBoneIdx = t3d_skeleton_find_bone(player->skel, "Bone.011");
 
     player->animIdle = t3d_anim_create(model, "bananaJump");
@@ -58,10 +57,10 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_speed(&player->animPunch, 2.0f);
     t3d_anim_attach(&player->animPunch, player->skel);
 
-    //model = t3d_model_load("rom:/banana.t3dm");
-    rspq_block_begin();     
-        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-        t3d_model_draw_skinned(model, player->skel);
+    // model = t3d_model_load("rom:/banana.t3dm");
+    rspq_block_begin();
+    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+    t3d_model_draw_skinned(model, player->skel);
     player->dplPlayer = rspq_block_end();
 }
 
@@ -74,12 +73,12 @@ void set_player_state(Player *player, PlayerState newState)
 // Cleanup player resources
 void player_cleanup(Player *player)
 {
-  rspq_block_free(player->dplPlayer);
+    rspq_block_free(player->dplPlayer);
 
-  t3d_skeleton_destroy(player->skel);
-  t3d_skeleton_destroy(player->skelBlend);
+    t3d_skeleton_destroy(player->skel);
+    t3d_skeleton_destroy(player->skelBlend);
 
-  free_uncached(player->modelMatFP);
+    free_uncached(player->modelMatFP);
 }
 
 // internal helper: collision detection
@@ -87,12 +86,16 @@ static void collision_detect(Player *player)
 {
     for (int i = 0; i < 2; i++)
     {
-        if (player == pipes[i].attachedPlayer) continue;
-        if (player->hasWeapon) continue;
-        if (pipes[i].equipped) continue;
+        if (player == pipes[i].attachedPlayer)
+            continue;
+        if (player->hasWeapon)
+            continue;
+        if (pipes[i].equipped)
+            continue;
 
         // Use AABB overlap for pickup (player world AABB vs weapon pickup AABB).
-        if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb)) continue;
+        if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb))
+            continue;
 
         player->hasWeapon = true;
         player->weapon = &pipes[i];
@@ -108,10 +111,13 @@ static void collision_detect(Player *player)
     for (int i = 0; i < 4; i++)
     {
         // Resolve each pair only once (collision_detect runs per-player).
-        if (&players[i] <= player) continue;
-        if (!players[i].alive) continue;
+        if (&players[i] <= player)
+            continue;
+        if (!players[i].alive)
+            continue;
 
-        if (!aabbf_overlaps(&player->aabb, &players[i].aabb)) continue;
+        if (!aabbf_overlaps(&player->aabb, &players[i].aabb))
+            continue;
 
         // Minimum-translation-vector (MTV) resolution in XZ.
         const float aMinX = player->aabb.min.v[0];
@@ -128,7 +134,8 @@ static void collision_detect(Player *player)
         float penX = fminf(aMaxX - bMinX, bMaxX - aMinX);
         float penZ = fminf(aMaxZ - bMinZ, bMaxZ - aMinZ);
 
-        if (penX <= 0.0f || penZ <= 0.0f) continue;
+        if (penX <= 0.0f || penZ <= 0.0f)
+            continue;
 
         // Add a tiny bias so we don't end up exactly touching and re-trigger due to float jitter.
         const float sepBias = 0.05f;
@@ -160,7 +167,6 @@ static void collision_detect(Player *player)
         player_refresh_aabb(player);
         player_refresh_aabb(&players[i]);
     }
-
 }
 
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime)
@@ -191,7 +197,6 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
     player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
 
-
     const float BOX_SIZE = 240.0f;
     if (player->playerPos.v[0] < -BOX_SIZE)
         player->playerPos.v[0] = -BOX_SIZE;
@@ -201,12 +206,12 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         player->playerPos.v[2] = -BOX_SIZE;
     if (player->playerPos.v[2] > BOX_SIZE)
         player->playerPos.v[2] = BOX_SIZE;
-        
+
     if (joybtns.b && !(player->state.s == STATE_ATTACK))
     {
         // State refactor, delete these later
-        //player->attacking = true;
-        //player->attackFrame = 0;
+        // player->attacking = true;
+        // player->attackFrame = 0;
         set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
     }
 
@@ -292,10 +297,14 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
             // Keep within arena bounds.
             const float BOX_SIZE = 240.0f;
-            if (dropped->wepPos.v[0] < -BOX_SIZE) dropped->wepPos.v[0] = -BOX_SIZE;
-            if (dropped->wepPos.v[0] >  BOX_SIZE) dropped->wepPos.v[0] =  BOX_SIZE;
-            if (dropped->wepPos.v[2] < -BOX_SIZE) dropped->wepPos.v[2] = -BOX_SIZE;
-            if (dropped->wepPos.v[2] >  BOX_SIZE) dropped->wepPos.v[2] =  BOX_SIZE;
+            if (dropped->wepPos.v[0] < -BOX_SIZE)
+                dropped->wepPos.v[0] = -BOX_SIZE;
+            if (dropped->wepPos.v[0] > BOX_SIZE)
+                dropped->wepPos.v[0] = BOX_SIZE;
+            if (dropped->wepPos.v[2] < -BOX_SIZE)
+                dropped->wepPos.v[2] = -BOX_SIZE;
+            if (dropped->wepPos.v[2] > BOX_SIZE)
+                dropped->wepPos.v[2] = BOX_SIZE;
 
             if (dropped->hit)
                 *dropped->hit = dropped->wepPos;
@@ -305,40 +314,40 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon = NULL;
         }
     }
-            // Update base pose
-            t3d_anim_update(&player->animIdle, deltaTime);
+    // Update base pose
+    t3d_anim_update(&player->animIdle, deltaTime);
 
-            // Attack overrides base while active
-            if (player->state.s == STATE_ATTACK)
-            {
-                if (!player->animPunch.isPlaying)
-                {
-                    t3d_anim_set_playing(&player->animPunch, true);
-                    t3d_anim_set_time(&player->animPunch, 0.0f);
-                }
-                t3d_anim_update(&player->animPunch, deltaTime);
+    // Attack overrides base while active
+    if (player->state.s == STATE_ATTACK)
+    {
+        if (!player->animPunch.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animPunch, true);
+            t3d_anim_set_time(&player->animPunch, 0.0f);
+        }
+        t3d_anim_update(&player->animPunch, deltaTime);
 
-                // If the non-looping animation finished, drop back to idle
-                if (!player->animPunch.isPlaying)
-                {
-                    set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
-                    t3d_skeleton_reset(player->skel);
-                    t3d_anim_update(&player->animIdle, 0.0f);
-                }
-            }
-            else
-            {
-                // Ensure next attack starts from the beginning
-                if (player->animPunch.isPlaying)
-                {
-                    t3d_anim_set_playing(&player->animPunch, false);
-                }
-                t3d_anim_set_time(&player->animPunch, 0.0f);
-            }
-            // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
-            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
-            player->skel->bones[0].hasChanged = true;
-            t3d_skeleton_update(player->skel);
+        // If the non-looping animation finished, drop back to idle
+        if (!player->animPunch.isPlaying)
+        {
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+            t3d_skeleton_reset(player->skel);
+            t3d_anim_update(&player->animIdle, 0.0f);
+        }
+    }
+    else
+    {
+        // Ensure next attack starts from the beginning
+        if (player->animPunch.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animPunch, false);
+        }
+        t3d_anim_set_time(&player->animPunch, 0.0f);
+    }
+    // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+    player->skel->bones[0].hasChanged = true;
+    t3d_skeleton_update(player->skel);
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],

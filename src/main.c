@@ -9,7 +9,7 @@
 #include <libdragon.h>
 #include <rspq_profile.h>
 #include "entities.h"
-#include "util.h" 
+#include "util.h"
 #include "collision.h"
 #define FB_COUNT 3
 
@@ -49,7 +49,8 @@ T3DVec3 spawnPositions[] = {
     (T3DVec3){{0, 0.15f, 100}},
 };
 
-enum GameMode {
+enum GameMode
+{
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
     GAME_MODE_PAUSE,
@@ -103,8 +104,7 @@ void game_cleanup()
     if (pipes[1].modelMatFP || pipes[1].hit)
         weapon_cleanup(&pipes[1]);
 
-
-    //rspq_block_free(dplMap);
+    // rspq_block_free(dplMap);
     if (dplHitbubble)
         rspq_block_free(dplHitbubble);
     dplHitbubble = NULL;
@@ -182,12 +182,10 @@ void game_start()
     HP2 = players[2].hitpoints;
     HP3 = players[3].hitpoints;
 
-        // Load p1 HP bar sprite
+    // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
 
     gameCleanedUp = false;
-
-
 }
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
 void game_init()
@@ -206,13 +204,13 @@ void game_init()
     mixer_init(32);
     mixer_set_vol(1.0f);
     debugf("Audio: freq=%dHz buf=%d samples can_write=%d\n",
-        audio_get_frequency(), audio_get_buffer_length(), (int)audio_can_write());
+           audio_get_frequency(), audio_get_buffer_length(), (int)audio_can_write());
     dfs_init(DFS_DEFAULT_LOCATION);
 
     // Start RSPQ profiler if available in the linked libdragon build.
     // If libdragon was built without RSPQ_PROFILE, calls will be no-ops.
     rspq_profile_start();
-    //console_init();
+    // console_init();
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE_ANTIALIAS);
     depthBuffer = display_get_zbuf();
     t3d_init((T3DInitParams){});
@@ -224,17 +222,17 @@ void game_init()
     gameMode = GAME_MODE_MENU;
     wav64_open(&dominating, "rom:/dominating.wav64");
     mixer_ch_set_vol(SFX_CH, 0.75f, 0.75f);
-    //wav64_play(&dominating, SFX_CH);
+    // wav64_play(&dominating, SFX_CH);
 
     // Prime a few buffers so playback starts immediately.
     audio_pump(2);
     modelMap = t3d_model_load("rom:/map1.t3dm");
-    rdpq_font_t* fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
+    rdpq_font_t *fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
     rdpq_font_style(fnt, STYLE_TITLE, &(rdpq_fontstyle_t){RGBA32(0xAA, 0xAA, 0xFF, 0xFF)});
-    rdpq_font_style(fnt, STYLE_GREY,  &(rdpq_fontstyle_t){RGBA32(0x66, 0x66, 0x66, 0xFF)});
+    rdpq_font_style(fnt, STYLE_GREY, &(rdpq_fontstyle_t){RGBA32(0x66, 0x66, 0x66, 0xFF)});
     rdpq_font_style(fnt, STYLE_GREEN, &(rdpq_fontstyle_t){RGBA32(0x39, 0xBF, 0x1F, 0xFF)});
     rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO, fnt);
- 
+
     rspq_block_begin();
     // t3d_model_draw(modelShadow);
     // t3d_model_draw(modelCrystal);
@@ -264,10 +262,13 @@ int main(void)
 
         // Update perf stats from the previous frame.
         {
-            if (debugDrawMapCandidates) {
+            if (debugDrawMapCandidates)
+            {
                 // Process a few deferred callbacks without blocking.
-                for (int i = 0; i < 4; i++) {
-                    if (!__rspq_deferred_poll()) break;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (!__rspq_deferred_poll())
+                        break;
                 }
             }
 
@@ -278,37 +279,50 @@ int main(void)
             rspq_profile_data_t cur = {0};
             rspq_profile_get_data(&cur);
             // Only compute a delta if we have a new profiled frame.
-            if (cur.frame_count != 0 && cur.frame_count != perf_prev_rspq.frame_count) {
+            if (cur.frame_count != 0 && cur.frame_count != perf_prev_rspq.frame_count)
+            {
                 uint64_t dt_total = cur.total_ticks - perf_prev_rspq.total_ticks;
-                uint64_t dt_busy  = cur.rdp_busy_ticks - perf_prev_rspq.rdp_busy_ticks;
+                uint64_t dt_busy = cur.rdp_busy_ticks - perf_prev_rspq.rdp_busy_ticks;
                 perf_last.rspq_ok = dt_total > 0;
                 perf_last.rsp_frame_us = rcp_ticks_to_us(dt_total);
-                perf_last.rdp_busy_us  = rcp_ticks_to_us(dt_busy);
+                perf_last.rdp_busy_us = rcp_ticks_to_us(dt_busy);
 
                 // Find top two overlays/slots for this frame.
                 uint64_t top1 = 0, top2 = 0;
                 const char *top1n = NULL, *top2n = NULL;
-                for (int i = 0; i < RSPQ_PROFILE_SLOT_COUNT; i++) {
+                for (int i = 0; i < RSPQ_PROFILE_SLOT_COUNT; i++)
+                {
                     const char *name = cur.slots[i].name;
-                    if (!name) continue;
+                    if (!name)
+                        continue;
                     uint64_t dt = cur.slots[i].total_ticks - perf_prev_rspq.slots[i].total_ticks;
-                    if (dt > top1) {
-                        top2 = top1; top2n = top1n;
-                        top1 = dt;   top1n = name;
-                    } else if (dt > top2) {
-                        top2 = dt;   top2n = name;
+                    if (dt > top1)
+                    {
+                        top2 = top1;
+                        top2n = top1n;
+                        top1 = dt;
+                        top1n = name;
+                    }
+                    else if (dt > top2)
+                    {
+                        top2 = dt;
+                        top2n = name;
                     }
                 }
 
                 memset(perf_last.top1_name, 0, sizeof(perf_last.top1_name));
                 memset(perf_last.top2_name, 0, sizeof(perf_last.top2_name));
-                if (top1n) strncpy(perf_last.top1_name, top1n, sizeof(perf_last.top1_name) - 1);
-                if (top2n) strncpy(perf_last.top2_name, top2n, sizeof(perf_last.top2_name) - 1);
+                if (top1n)
+                    strncpy(perf_last.top1_name, top1n, sizeof(perf_last.top1_name) - 1);
+                if (top2n)
+                    strncpy(perf_last.top2_name, top2n, sizeof(perf_last.top2_name) - 1);
                 perf_last.top1_us = rcp_ticks_to_us(top1);
                 perf_last.top2_us = rcp_ticks_to_us(top2);
 
                 perf_prev_rspq = cur;
-            } else {
+            }
+            else
+            {
                 perf_last.rspq_ok = false;
                 perf_last.rsp_frame_us = 0;
                 perf_last.rdp_busy_us = 0;
@@ -328,7 +342,7 @@ int main(void)
         float newTime = get_time_s();
         float deltaTime = newTime - lastTime;
         lastTime = newTime;
-        //debugf("Frame Time: %.4f s (%.2f FPS)\n", deltaTime, 1.0f / deltaTime);
+        // debugf("Frame Time: %.4f s (%.2f FPS)\n", deltaTime, 1.0f / deltaTime);
 
         // Update global Y rotation for weapons
         globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
@@ -350,11 +364,11 @@ int main(void)
             gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
         }
 
-        if (joypad1_btn.c_down) {
+        if (joypad1_btn.c_down)
+        {
             wav64_play(&dominating, SFX_CH);
             debugDrawMapCandidates = !debugDrawMapCandidates;
         }
-
 
         // Set viewport
         t3d_viewport_set_projection(&viewport, T3D_DEG_TO_RAD(90.0f), 20.0f, 320.0f);
@@ -372,215 +386,233 @@ int main(void)
         t3d_light_set_ambient(colorAmbient);
         t3d_light_set_directional(0, colorDir, &lightDirVec);
         t3d_light_set_count(1);
-        
+
         // Draw map first (background)
         rspq_block_run(dplMap);
 
-        switch (gameMode){
-            case GAME_MODE_PLAY:
+        switch (gameMode)
+        {
+        case GAME_MODE_PLAY:
+        {
+            // Update players //
+            did_i_win(winner);
+
+            if (*winner != -1)
             {
-                // Update players //
-                did_i_win(winner);
+                gameMode = GAME_MODE_END;
+                break;
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                // Only do this for alive players
+                if (!players[i].alive)
+                    continue;
+                // Actually do the update
+                player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
+            }
 
-                if(*winner != -1) {
-                    gameMode = GAME_MODE_END;
-                    break;
-                }
-                for (int i = 0; i < 4; i++)
-                {
-                    // Only do this for alive players
-                    if (!players[i].alive)
-                        continue;
-                    // Actually do the update
-                    player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
-                }
+            // Update weapons
+            pipe_movement(&pipes[0], globalYrot, frameIdx);
+            pipe_movement(&pipes[1], globalYrot, frameIdx);
+            for (int i = 0; i < 2; i++)
+            {
+                t3d_mat4fp_from_srt_euler(hitbubbleFP,
+                                          (float[3]){0.1f, 0.1f, 0.1f},
+                                          (float[3]){0.0f, 0.0f, 0.0f},
+                                          pipes[i].hit->v);
+            }
+            rspq_block_run(dplHitbubble);
 
-                // Update weapons
-                pipe_movement(&pipes[0], globalYrot, frameIdx);
-                pipe_movement(&pipes[1], globalYrot, frameIdx);
-                for (int i = 0; i < 2; i++)
+            // Draw players
+            for (int i = 0; i < 4; i++)
+            {
+                if (players[i].alive && (players[i].isHittable % 2 == 0))
                 {
-                    t3d_mat4fp_from_srt_euler(hitbubbleFP,
-                                            (float[3]){0.1f, 0.1f, 0.1f},
-                                            (float[3]){0.0f, 0.0f, 0.0f},
-                                            pipes[i].hit->v);
-                }
-                rspq_block_run(dplHitbubble);
-
-                // Draw players
-                for (int i = 0; i < 4; i++)
-                {
-                    if (players[i].alive && (players[i].isHittable % 2 == 0))
-                    {
-                        // Buffered skeletons require selecting the active matrices before drawing.
-                        // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
-                        t3d_skeleton_use(players[i].skel);
-                        t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
-                        rspq_block_run(players[i].dplPlayer);
-                        t3d_matrix_pop(1);
-                    }
-                }
-
-                // Draw weapons
-                for (int i = 0; i < 2; i++)
-                {
-                    t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
-                    rspq_block_run(pipes[i].dplWeapon);
+                    // Buffered skeletons require selecting the active matrices before drawing.
+                    // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
+                    t3d_skeleton_use(players[i].skel);
+                    t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
+                    rspq_block_run(players[i].dplPlayer);
                     t3d_matrix_pop(1);
                 }
-
-                // ======== Draw (2D) ======== //
-                rdpq_sync_pipe();
-                rdpq_set_scissor(0, 0, sizeX, sizeY);
-                rdpq_set_mode_standard();
-
-                // Get all players HP and linearly interpolate for smooth bar movement
-                HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
-                HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
-                HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
-                HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
-
-                // Draw green HP bars first
-                rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
-                rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
-                rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
-                rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
-                rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
-
-                // Then draw red HP bar for missing HP
-                rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
-                rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
-                rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
-                rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
-                rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
-                        // Draw shared 2D overlay (if desired across all modes)
-                rdpq_sync_pipe();
-                rdpq_set_mode_standard();
-                rdpq_mode_alphacompare(128);
-                rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
-
             }
-            break;
-            case GAME_MODE_PAUSE:
+
+            // Draw weapons
+            for (int i = 0; i < 2; i++)
             {
-                rspq_block_run(dplMap);
-                float posX = 127;
-                float posY = 40;
-                if(menuSelection > 2) menuSelection = 2;
-                float cursorX = posX - 10;
-                float cursorY = 60 + (10 * menuSelection);
-                rdpq_sync_pipe();
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "GAME PAUSED");
-                posY += 20;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Resume Game");
-                posY += 10;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Reset Game");
-                posY += 10;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Exit to Menu");
-                posY += 10;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
-
-                if(joypad1.stick_y > 24) {
-                    menuSelection--;
-                    if(menuSelection < 0) menuSelection = 0;
-                }
-                if(joypad1.stick_y < -24) {
-                    menuSelection ++;
-                    if(menuSelection > 2) menuSelection = 2;
-                }
-                if(joypad1_btn.a) {
-                    switch(menuSelection) {
-                        case 0:
-                            menuSelection = 0;  
-                            gameMode = GAME_MODE_PLAY;
-                            break;
-                        case 1:
-                            gameMode = GAME_MODE_RESET;
-                            break;
-                        case 2:
-                            menuSelection = 0;
-                            *winner = -1;
-                             game_cleanup();
-                            gameMode = GAME_MODE_MENU;
-                            break;
-                    }
-                }
-                rdpq_sync_pipe();
+                t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
+                rspq_block_run(pipes[i].dplWeapon);
+                t3d_matrix_pop(1);
             }
-            break;
-            case GAME_MODE_MENU:
+
+            // ======== Draw (2D) ======== //
+            rdpq_sync_pipe();
+            rdpq_set_scissor(0, 0, sizeX, sizeY);
+            rdpq_set_mode_standard();
+
+            // Get all players HP and linearly interpolate for smooth bar movement
+            HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
+            HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
+            HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
+            HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
+
+            // Draw green HP bars first
+            rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
+            rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
+            rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
+            rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
+            rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
+
+            // Then draw red HP bar for missing HP
+            rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
+            rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
+            rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
+            rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
+            rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
+            // Draw shared 2D overlay (if desired across all modes)
+            rdpq_sync_pipe();
+            rdpq_set_mode_standard();
+            rdpq_mode_alphacompare(128);
+            rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
+        }
+        break;
+        case GAME_MODE_PAUSE:
+        {
+            rspq_block_run(dplMap);
+            float posX = 127;
+            float posY = 40;
+            if (menuSelection > 2)
+                menuSelection = 2;
+            float cursorX = posX - 10;
+            float cursorY = 60 + (10 * menuSelection);
+            rdpq_sync_pipe();
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "GAME PAUSED");
+            posY += 20;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Resume Game");
+            posY += 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Reset Game");
+            posY += 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Exit to Menu");
+            posY += 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
+
+            if (joypad1.stick_y > 24)
             {
-                game_reset(spawnPositions);
-                //draw menu here
-                    // ======== Draw (UI) ======== //
-                rspq_block_run(dplMap);
-                float posX = 127;
-                float posY = 40;
-                if(menuSelection > 1) menuSelection = 1;
-                float cursorX = posX - 10;
-                float cursorY = 60 + (10 * menuSelection);
-                rdpq_sync_pipe();
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Banana Bandits");
-                posY += 20;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Start Game");
-                posY += 10;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Options");
-                posY += 10;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
-
-                if(joypad1.stick_y > 24) {
-                    menuSelection--;
-                    if(menuSelection < 0) menuSelection = 0;
-                }
-                if(joypad1.stick_y < -24) {
-                    menuSelection++;
-                    if(menuSelection > 1) menuSelection = 1;
-                }
-                if(joypad1_btn.a) {
-                    switch(menuSelection) {
-                        case 0:
-                            gameMode = GAME_MODE_PLAY;
-                            game_start();
-                            break;
-                        case 1:
-                            //options
-                            break;
-                    }
-                }
-                rdpq_sync_pipe();
+                menuSelection--;
+                if (menuSelection < 0)
+                    menuSelection = 0;
             }
-            break;
-            case (GAME_MODE_RESET): {
-                game_cleanup();
-                game_start();
-                gameMode = GAME_MODE_PLAY;
-                menuSelection = 0;
+            if (joypad1.stick_y < -24)
+            {
+                menuSelection++;
+                if (menuSelection > 2)
+                    menuSelection = 2;
             }
-            break;
-            case (GAME_MODE_END): {
-                rspq_block_run(dplMap);
-                debugDrawMapCandidates = false;
-                float posX = 127;
-                float posY = 100;
-                rdpq_sync_pipe();
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Game Over!");
-                posY += 20;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", *winner + 1);
-                posY += 20;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Press A to return to Menu");
-
-                if(joypad1_btn.a) {
+            if (joypad1_btn.a)
+            {
+                switch (menuSelection)
+                {
+                case 0:
+                    menuSelection = 0;
+                    gameMode = GAME_MODE_PLAY;
+                    break;
+                case 1:
+                    gameMode = GAME_MODE_RESET;
+                    break;
+                case 2:
+                    menuSelection = 0;
+                    *winner = -1;
                     game_cleanup();
                     gameMode = GAME_MODE_MENU;
-                    menuSelection = 0;
+                    break;
                 }
-                rdpq_sync_pipe();
             }
+            rdpq_sync_pipe();
+        }
+        break;
+        case GAME_MODE_MENU:
+        {
+            game_reset(spawnPositions);
+            // draw menu here
+            //  ======== Draw (UI) ======== //
+            rspq_block_run(dplMap);
+            float posX = 127;
+            float posY = 40;
+            if (menuSelection > 1)
+                menuSelection = 1;
+            float cursorX = posX - 10;
+            float cursorY = 60 + (10 * menuSelection);
+            rdpq_sync_pipe();
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Banana Bandits");
+            posY += 20;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Start Game");
+            posY += 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Options");
+            posY += 10;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, cursorX, cursorY, STYLE(STYLE_GREY) ">");
 
+            if (joypad1.stick_y > 24)
+            {
+                menuSelection--;
+                if (menuSelection < 0)
+                    menuSelection = 0;
+            }
+            if (joypad1.stick_y < -24)
+            {
+                menuSelection++;
+                if (menuSelection > 1)
+                    menuSelection = 1;
+            }
+            if (joypad1_btn.a)
+            {
+                switch (menuSelection)
+                {
+                case 0:
+                    gameMode = GAME_MODE_PLAY;
+                    game_start();
+                    break;
+                case 1:
+                    // options
+                    break;
+                }
+            }
+            rdpq_sync_pipe();
+        }
+        break;
+        case (GAME_MODE_RESET):
+        {
+            game_cleanup();
+            game_start();
+            gameMode = GAME_MODE_PLAY;
+            menuSelection = 0;
+        }
+        break;
+        case (GAME_MODE_END):
+        {
+            rspq_block_run(dplMap);
+            debugDrawMapCandidates = false;
+            float posX = 127;
+            float posY = 100;
+            rdpq_sync_pipe();
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Game Over!");
+            posY += 20;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", *winner + 1);
+            posY += 20;
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Press A to return to Menu");
+
+            if (joypad1_btn.a)
+            {
+                game_cleanup();
+                gameMode = GAME_MODE_MENU;
+                menuSelection = 0;
+            }
+            rdpq_sync_pipe();
+        }
         }
 
         // Debug overlay: CPU/RSP performance summary.
-        if (debugDrawMapCandidates) {
+        if (debugDrawMapCandidates)
+        {
             // Ensure the RDP is in a safe state before switching to 2D/text.
             // This matters especially on frames where we break out of gameplay
             // early (eg: winner detected) and skip the usual 2D sync.
@@ -590,33 +622,32 @@ int main(void)
 
             rdpq_set_mode_standard();
             float y = 10;
-            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
-                "CPU frame: %5.2f ms  (mixer wait: %5.2f ms)", cpu_ms, mix_ms);
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY) "CPU frame: %5.2f ms  (mixer wait: %5.2f ms)", cpu_ms, mix_ms);
             y += 10;
 
-            if (perf_last.rspq_ok) {
+            if (perf_last.rspq_ok)
+            {
                 float rsp_ms = (float)perf_last.rsp_frame_us / 1000.0f;
                 float rdp_ms = (float)perf_last.rdp_busy_us / 1000.0f;
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
-                    "RSP frame: %5.2f ms  (RDP busy: %5.2f ms)", rsp_ms, rdp_ms);
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY) "RSP frame: %5.2f ms  (RDP busy: %5.2f ms)", rsp_ms, rdp_ms);
                 y += 10;
 
-                if (perf_last.top1_name[0]) {
-                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
-                        "Top: %-24s %5.2f ms", perf_last.top1_name, (float)perf_last.top1_us / 1000.0f);
+                if (perf_last.top1_name[0])
+                {
+                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY) "Top: %-24s %5.2f ms", perf_last.top1_name, (float)perf_last.top1_us / 1000.0f);
                     y += 10;
                 }
-                if (perf_last.top2_name[0]) {
-                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
-                        "     %-24s %5.2f ms", perf_last.top2_name, (float)perf_last.top2_us / 1000.0f);
+                if (perf_last.top2_name[0])
+                {
+                    rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY) "     %-24s %5.2f ms", perf_last.top2_name, (float)perf_last.top2_us / 1000.0f);
                     y += 10;
                 }
-            } else {
-                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY)
-                    "RSPQ profiler: disabled/unavailable");
+            }
+            else
+            {
+                rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, 10, y, STYLE(STYLE_GREY) "RSPQ profiler: disabled/unavailable");
             }
         }
-
 
         syncPoint = rspq_syncpoint_new();
         rdpq_sync_tile();
@@ -624,11 +655,13 @@ int main(void)
 
         // Optional CPU debug overlay: draw bounds/colliders (wireframe).
         // We must wait for the RDP to finish before touching the framebuffer.
-        if (debugDrawMapCandidates && gameMode == GAME_MODE_PLAY && modelMap) {
+        if (debugDrawMapCandidates && gameMode == GAME_MODE_PLAY && modelMap)
+        {
             rdpq_detach_wait();
 
             // Broadphase: capsule-derived AABB vs map object AABBs (draw candidate objects).
-            if (debugDrawMapCandidates && modelMap) {
+            if (debugDrawMapCandidates && modelMap)
+            {
                 T3DMat4 mapIdentity = {0};
                 mapIdentity.m[0][0] = 1.0f;
                 mapIdentity.m[1][1] = 1.0f;
@@ -636,13 +669,15 @@ int main(void)
                 mapIdentity.m[3][3] = 1.0f;
 
                 uint32_t queryColor = graphics_make_color(0x00, 0xFF, 0xFF, 0xFF);
-                uint32_t candColor  = graphics_make_color(0x80, 0xFF, 0xFF, 0xFF);
+                uint32_t candColor = graphics_make_color(0x80, 0xFF, 0xFF, 0xFF);
 
                 static float lastPrint = 0.0f;
                 int totalCandidates = 0;
 
-                for (int p = 0; p < 4; p++) {
-                    if (!players[p].alive) continue;
+                for (int p = 0; p < 4; p++)
+                {
+                    if (!players[p].alive)
+                        continue;
 
                     // Use the gameplay AABB tied to the player (world-space).
                     AabbF query = players[p].aabb;
@@ -653,17 +688,20 @@ int main(void)
                     // Iterate all map objects and draw those whose AABB overlaps query.
                     int playerCandidates = 0;
                     T3DModelIter it = t3d_model_iter_create(modelMap, T3D_CHUNK_TYPE_OBJECT);
-                    while (t3d_model_iter_next(&it)) {
+                    while (t3d_model_iter_next(&it))
+                    {
                         const T3DObject *obj = it.object;
                         AabbF objAabb = {
                             .min = (T3DVec3){{s16_to_f32(obj->aabbMin[0]), s16_to_f32(obj->aabbMin[1]), s16_to_f32(obj->aabbMin[2])}},
                             .max = (T3DVec3){{s16_to_f32(obj->aabbMax[0]), s16_to_f32(obj->aabbMax[1]), s16_to_f32(obj->aabbMax[2])}},
                         };
 
-                        if (!aabbf_overlaps(&query, &objAabb)) continue;
+                        if (!aabbf_overlaps(&query, &objAabb))
+                            continue;
 
                         // Cap draws to avoid turning the frame into a line soup.
-                        if (playerCandidates < 64) {
+                        if (playerCandidates < 64)
+                        {
                             debug_draw_object_aabb_mat4(surface, &viewport, obj, &mapIdentity, candColor);
                         }
                         playerCandidates++;
@@ -673,7 +711,8 @@ int main(void)
                 }
 
                 float now = get_time_s();
-                if (now - lastPrint > 0.5f) {
+                if (now - lastPrint > 0.5f)
+                {
                     debugf("Map broadphase candidates (sum over players): %d\n", totalCandidates);
                     lastPrint = now;
                 }
@@ -682,7 +721,8 @@ int main(void)
                 uint32_t weaponColors[2];
                 weaponColors[0] = graphics_make_color(0xFF, 0x00, 0xFF, 0xFF);
                 weaponColors[1] = graphics_make_color(0xFF, 0x80, 0xFF, 0xFF);
-                for (int w = 0; w < 2; w++) {
+                for (int w = 0; w < 2; w++)
+                {
                     debug_draw_aabbf(surface, &viewport, &pipes[w].aabb, weaponColors[w]);
                 }
             }
@@ -693,13 +733,17 @@ int main(void)
             colors[2] = graphics_make_color(0x40, 0xA0, 0xFF, 0xFF);
             colors[3] = graphics_make_color(0xFF, 0xFF, 0x40, 0xFF);
 
-            for (int i = 0; i < 4; i++) {
-                if (!players[i].alive) continue;
+            for (int i = 0; i < 4; i++)
+            {
+                if (!players[i].alive)
+                    continue;
                 debug_draw_aabbf(surface, &viewport, &players[i].aabb, colors[i]);
             }
 
             display_show(surface);
-        } else {
+        }
+        else
+        {
             rdpq_detach_show();
         }
 
@@ -709,7 +753,8 @@ int main(void)
 
         // Tell the RSPQ profiler that a frame has completed. Do this only
         // when the debug overlay is active to avoid overhead.
-        if (debugDrawMapCandidates) {
+        if (debugDrawMapCandidates)
+        {
             rspq_profile_next_frame();
         }
 
