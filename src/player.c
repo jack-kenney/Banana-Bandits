@@ -67,7 +67,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
 void set_player_state(Player *player, PlayerState newState)
 {
     player->state = newState;
-    player->state.frame = 0;
+    //player->state.frame = 0;
 }
 
 // Cleanup player resources
