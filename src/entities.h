@@ -10,6 +10,17 @@
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
 
+typedef struct {
+    enum{
+        STATE_IDLE,
+        STATE_WALK,
+        STATE_JUMP,
+        STATE_ATTACK,
+        STATE_DEAD
+    } s;
+    uint8_t frame;
+} PlayerState;
+
 typedef struct Weapon Weapon;
 
 typedef struct
@@ -33,6 +44,7 @@ typedef struct
     bool hasWeapon;
     int attackFrame;
     AabbF aabb;
+    PlayerState state;
 } Player;
 
 struct Weapon
@@ -61,6 +73,7 @@ extern Weapon pipes[2];
 void player_init(Player *player, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx);
 void player_cleanup(Player *player);
+void set_player_state(Player *player, PlayerState newState);
 
 /* Weapon API */
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);

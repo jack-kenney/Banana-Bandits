@@ -129,7 +129,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         // Adjust weapon attachment height
         pipe->wepPos.v[1] -= 35.0f;
 
-        if (p->attacking)
+        if (p->state.s == STATE_ATTACK)
         {
             pipe->isAttack = true;
             T3DVec3 attackDir;

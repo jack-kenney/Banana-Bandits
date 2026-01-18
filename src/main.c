@@ -532,7 +532,7 @@ int main(void)
                     t3d_anim_update(&animIdle[i], deltaTime);
 
                     // Attack overrides base while active
-                    if (players[i].attacking)
+                    if (players[i].state.s == STATE_ATTACK)
                     {
                         if (!animPunch[i].isPlaying)
                         {
@@ -544,8 +544,8 @@ int main(void)
                         // If the non-looping animation finished, drop back to idle
                         if (!animPunch[i].isPlaying)
                         {
-                            players[i].attacking = false;
-                            players[i].attackFrame = 0;
+                            players[i].state.s = STATE_IDLE;
+                            players[i].state.frame = 0;
                         }
                     }
                     else

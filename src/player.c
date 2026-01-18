@@ -47,6 +47,8 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->attackFrame = 0;
     player->weapon = NULL;
     player->hasWeapon = false;
+    player->state.s = STATE_IDLE;
+    player->state.frame = 0;
     player_refresh_aabb(player);
     player->skel = malloc_uncached(sizeof(*player->skel));
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
@@ -59,6 +61,12 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
         rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
         t3d_model_draw_skinned(model, player->skel);
     player->dplPlayer = rspq_block_end();
+}
+
+void set_player_state(Player *player, PlayerState newState)
+{
+    player->state = newState;
+    player->state.frame = 0;
 }
 
 // Cleanup player resources
@@ -193,19 +201,22 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         player->playerPos.v[2] = -BOX_SIZE;
     if (player->playerPos.v[2] > BOX_SIZE)
         player->playerPos.v[2] = BOX_SIZE;
+        
     if (joybtns.b && !player->attacking)
     {
-        player->attacking = true;
-        player->attackFrame = 0;
+        // State refactor, delete these later
+        //player->attacking = true;
+        //player->attackFrame = 0;
+        set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
     }
 
-    if (player->attacking)
+    if (player->state.s == STATE_ATTACK)
     {
-        player->attackFrame += 1;
-        if (player->attackFrame >= ATK_LENGTH * 2)
+        player->state.frame += 1;
+        if (player->state.frame >= ATK_LENGTH)
         {
-            player->attackFrame = 0;
-            player->attacking = false;
+            player->state.frame = 0;
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
             if (player->weapon)
                 player->weapon->attackFrame = 0;
         }
