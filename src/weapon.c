@@ -20,6 +20,12 @@ static const float WEAPON_HIT_AABB_HALF_EXTENT_Y = 30.0f;
 static const float WEAPON_PICKUP_AABB_HALF_EXTENT_XZ = 15.0f;
 static const float WEAPON_PICKUP_AABB_HALF_EXTENT_Y = 45.0f;
 static const float WEAPON_AABB_Y_OFFSET = 50.0f;
+// Weapon grip offset relative to the hand bone.
+// Tune these to align the weapon model's axes with the bone's axes.
+// Compensate for player scale (0.125) so weapon stays at its intended size (0.5 world scale).
+static const float WEAPON_GRIP_SCALE[3] = {4.0f, 4.0f, 4.0f};
+static const float WEAPON_GRIP_ROT[3] = {0.0f, T3D_PI / 2.0f, 0.0f};
+static const float WEAPON_GRIP_OFFSET[3] = {0.0f, 0.0f, 0.0f};
 
 void weapon_refresh_aabb(Weapon *weapon)
 {
@@ -96,6 +102,9 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
     {
         Player *p = pipe->attachedPlayer;
         pipe->rotY = p->rotY;
+        bool hasBoneMatrix = false;
+        T3DMat4 worldBoneMat;
+        T3DMat4 weaponBaseMat;
 
         // Prefer attaching to the animated hand bone.
         // `t3d_skeleton_get_bone_pos_model_space` returns a position in *model space*,
@@ -103,21 +112,24 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         if (p->handBoneIdx >= 0)
         {
             pipe->boneIndexWeapon = p->handBoneIdx;
-            T3DVec3 bonePos = t3d_skeleton_get_bone_pos_model_space(p->skel, p->handBoneIdx);
-
+            T3DMat4 *boneMat = &p->skel->bones[p->handBoneIdx].matrix;
             T3DMat4 playerMat;
             t3d_mat4_from_srt_euler(&playerMat,
                                     (float[3]){0.125f, 0.125f, 0.125f},
                                     (float[3]){0.0f, -p->rotY, 0.0f},
                                     p->playerPos.v);
 
-            T3DVec4 boneWorld;
-            t3d_mat4_mul_vec3(&boneWorld, &playerMat, &bonePos);
-            pipe->wepPos = (T3DVec3){{boneWorld.v[0], boneWorld.v[1], boneWorld.v[2]}};
+            // Bone matrix is in model space. Compose with player transform to get world space.
+            t3d_mat4_mul(&worldBoneMat, &playerMat, boneMat);
+
+            // Apply grip offset to align weapon axes with the hand bone axes.
+            T3DMat4 gripMat;
+            t3d_mat4_from_srt_euler(&gripMat, WEAPON_GRIP_SCALE, WEAPON_GRIP_ROT, WEAPON_GRIP_OFFSET);
+            t3d_mat4_mul(&weaponBaseMat, &worldBoneMat, &gripMat);
+            pipe->wepPos = (T3DVec3){{weaponBaseMat.m[3][0], weaponBaseMat.m[3][1], weaponBaseMat.m[3][2]}};
+            hasBoneMatrix = true;
             // debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
             // p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
-            // debugf("Bone model space position: (%f, %f, %f)\n",
-            // bonePos.v[0], bonePos.v[1], bonePos.v[2]);
         }
         else
         {
@@ -126,8 +138,8 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         }
 
         // Adjust weapon attachment height
-        pipe->wepPos.v[1] -= 35.0f;
-
+        //pipe->wepPos.v[1] -= 35.0f;
+        /*
         if (p->state.s == STATE_ATTACK)
         {
             pipe->isAttack = true;
@@ -159,13 +171,16 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             if (pipe->hit)
                 *pipe->hit = pipe->wepPos;
         }
-
+        */
         // Keep weapon AABB in sync; during attacks it's centered at the hit point.
         weapon_refresh_aabb(pipe);
 
         // Apply weapon hits via AABB overlap against player AABBs.
         if (pipe->isAttack)
         {
+            T3DVec3 attackDir;
+            t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
+            t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
             for (int i = 0; i < 4; i++)
             {
                 Player *target = &players[i];
@@ -190,10 +205,26 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         }
 
         // Update the weapon's render matrix for this frame.
-        t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
-                                  (float[3]){0.5f, 0.5f, 0.5f},
-                                  (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
-                                  pipe->wepPos.v);
+        if (hasBoneMatrix)
+        {
+            T3DMat4 attackMat;
+            t3d_mat4_from_srt_euler(&attackMat,
+                                    (float[3]){1.0f, 1.0f, 1.0f},
+                                    (float[3]){0.0f, 0.0f, pitch},
+                                    (float[3]){0.0f, 0.0f, 0.0f});
+
+            T3DMat4 weaponMat;
+            t3d_mat4_mul(&weaponMat, &weaponBaseMat, &attackMat);
+            t3d_mat4_to_fixed_3x4(&pipe->modelMatFP[frameIdx], &weaponMat);
+        }
+        else
+        {
+            t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
+                                      (float[3]){0.5f, 0.5f, 0.5f},
+                                      (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
+                                      pipe->wepPos.v);
+        }
+
     }
     else
     {

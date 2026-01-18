@@ -213,6 +213,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         // player->attacking = true;
         // player->attackFrame = 0;
         set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
+        player->weapon->isAttack = true;
     }
 
     /*
@@ -336,7 +337,10 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             t3d_skeleton_reset(player->skel);
             t3d_anim_update(&player->animIdle, 0.0f);
             if (player->weapon)
+            {
                 player->weapon->attackFrame = 0;
+                player->weapon->isAttack = false;
+            }
         }
     }
     else
