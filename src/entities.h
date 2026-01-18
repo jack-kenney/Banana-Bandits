@@ -11,8 +11,10 @@
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
 
-typedef struct {
-    enum{
+typedef struct
+{
+    enum
+    {
         STATE_IDLE,
         STATE_WALK,
         STATE_JUMP,

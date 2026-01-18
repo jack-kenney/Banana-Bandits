@@ -8,7 +8,8 @@
 // frame takes longer (gameplay) without stalling too long in one spot.
 void audio_pump(int max_buffers)
 {
-    for (int i = 0; i < max_buffers && audio_can_write(); i++) {
+    for (int i = 0; i < max_buffers && audio_can_write(); i++)
+    {
         mixer_try_play();
     }
 }
@@ -31,17 +32,28 @@ float s16_to_f32(int16_t v)
 static void debug_draw_box_wireframe(surface_t *surface, T3DViewport *viewport, const T3DVec3 cornersWorld[8], uint32_t color)
 {
     T3DVec3 screen[8];
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         t3d_viewport_calc_viewspace_pos(viewport, &screen[i], &cornersWorld[i]);
     }
 
     static const uint8_t edges[12][2] = {
-        {0, 1}, {1, 2}, {2, 3}, {3, 0},
-        {4, 5}, {5, 6}, {6, 7}, {7, 4},
-        {0, 4}, {1, 5}, {2, 6}, {3, 7},
+        {0, 1},
+        {1, 2},
+        {2, 3},
+        {3, 0},
+        {4, 5},
+        {5, 6},
+        {6, 7},
+        {7, 4},
+        {0, 4},
+        {1, 5},
+        {2, 6},
+        {3, 7},
     };
 
-    for (int e = 0; e < 12; e++) {
+    for (int e = 0; e < 12; e++)
+    {
         int a = edges[e][0];
         int b = edges[e][1];
         int x0 = (int)screen[a].v[0];
@@ -70,7 +82,8 @@ void debug_draw_aabbf(surface_t *surface, T3DViewport *viewport, const AabbF *aa
 
 void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DObject *obj, const T3DMat4 *modelMat, uint32_t color)
 {
-    if (!surface || !viewport || !obj || !modelMat) return;
+    if (!surface || !viewport || !obj || !modelMat)
+        return;
 
     const float minX = s16_to_f32(obj->aabbMin[0]);
     const float minY = s16_to_f32(obj->aabbMin[1]);
@@ -91,7 +104,8 @@ void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, cons
     };
 
     T3DVec3 cornersWorld[8];
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++)
+    {
         T3DVec4 out;
         t3d_mat4_mul_vec3(&out, modelMat, &localCorners[i]);
         cornersWorld[i] = (T3DVec3){{out.v[0], out.v[1], out.v[2]}};
@@ -105,23 +119,27 @@ float get_time_s(void)
     return (float)((double)get_ticks_us() / 1000000.0);
 }
 
-void game_reset(T3DVec3 spawnPositions[4]){
-    for(int i = 0; i < 4; i++){
+void game_reset(T3DVec3 spawnPositions[4])
+{
+    for (int i = 0; i < 4; i++)
+    {
         players[i].hitpoints = 100.0f;
         players[i].alive = true;
         players[i].playerPos = spawnPositions[i];
         players[i].currSpeed = 0.0f;
-        players[i].moveDir = (T3DVec3){{0,0,0}};
+        players[i].moveDir = (T3DVec3){{0, 0, 0}};
         players[i].rotY = 0.0f;
         players[i].hasWeapon = false;
-        if(players[i].weapon){
+        if (players[i].weapon)
+        {
             players[i].weapon->equipped = false;
             players[i].weapon->attachedPlayer = NULL;
         }
         players[i].weapon = NULL;
     }
 
-    for(int i = 0; i < 2; i++){
+    for (int i = 0; i < 2; i++)
+    {
         pipes[i].equipped = false;
         pipes[i].attachedPlayer = NULL;
         pipes[i].isAttack = false;
@@ -131,20 +149,23 @@ void game_reset(T3DVec3 spawnPositions[4]){
     pipes[1].wepPos = (T3DVec3){{50.0f, 0.0f, 50.0f}};
 }
 
-
-void did_i_win(int *winner){
+void did_i_win(int *winner)
+{
     int aliveCount = 0;
     int lastAliveIdx = -1;
-    for(int i = 0; i < 4; i++){
-        if(players[i].alive){
+    for (int i = 0; i < 4; i++)
+    {
+        if (players[i].alive)
+        {
             aliveCount++;
             lastAliveIdx = i;
         }
     }
-    //debugf("Alive players: %d\n", aliveCount);
-    //debugf("Current winner: %d\n", *winner);
-    if(aliveCount == 1){
+    // debugf("Alive players: %d\n", aliveCount);
+    // debugf("Current winner: %d\n", *winner);
+    if (aliveCount == 1)
+    {
         *winner = lastAliveIdx;
         debugf("Player %d wins the game!\n", *winner + 1);
     }
-}   
+}
