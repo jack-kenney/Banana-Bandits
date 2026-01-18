@@ -428,8 +428,9 @@ int main(void)
                         // If the non-looping animation finished, drop back to idle
                         if (!animPunch[i].isPlaying)
                         {
-                            players[i].state.s = STATE_IDLE;
-                            players[i].state.frame = 0;
+                            set_player_state(&players[i], (PlayerState){.s = STATE_IDLE, .frame = 0});
+                            t3d_skeleton_reset(players[i].skel);
+                            t3d_anim_update(&animIdle[i], 0.0f);
                         }
                     }
                     else

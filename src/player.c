@@ -44,7 +44,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->isHittable = 0;
     player->hitpoints = 100.0f;
     player->attacking = false;
-    player->attackFrame = 0;
+    //player->attackFrame = 0;
     player->weapon = NULL;
     player->hasWeapon = false;
     player->state.s = STATE_IDLE;
@@ -202,7 +202,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     if (player->playerPos.v[2] > BOX_SIZE)
         player->playerPos.v[2] = BOX_SIZE;
         
-    if (joybtns.b && !player->attacking)
+    if (joybtns.b && !(player->state.s == STATE_ATTACK))
     {
         // State refactor, delete these later
         //player->attacking = true;
@@ -213,7 +213,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     if (player->state.s == STATE_ATTACK)
     {
         player->state.frame += 1;
-        if (player->state.frame >= ATK_LENGTH)
+        if (player->state.frame >= ATK_LENGTH * 2)
         {
             player->state.frame = 0;
             set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
