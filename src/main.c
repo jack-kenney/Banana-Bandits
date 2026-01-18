@@ -37,7 +37,7 @@ T3DVec3 lightDirVec;
 float globalYrot;
 int gameMode, frameIdx;
 int *winner;
-float HP0, HP1, HP2, HP3, lastTime;
+float HP[4], lastTime;
 sprite_t *spriteBanana;
 bool gameCleanedUp = false;
 xm64player_t musicPlayer;
@@ -174,13 +174,8 @@ void game_start()
     for (int i = 0; i < 4; i++)
     {
         player_init(&players[i], spawnPositions[i], modelBanana);
+        HP[i] = players[i].hitpoints;
     }
-
-    // These are used for drawing players' HP bars
-    HP0 = players[0].hitpoints;
-    HP1 = players[1].hitpoints;
-    HP2 = players[2].hitpoints;
-    HP3 = players[3].hitpoints;
 
     // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
@@ -451,24 +446,24 @@ int main(void)
             rdpq_set_mode_standard();
 
             // Get all players HP and linearly interpolate for smooth bar movement
-            HP0 = t3d_lerp(HP0, players[0].hitpoints, 0.5f);
-            HP1 = t3d_lerp(HP1, players[1].hitpoints, 0.5f);
-            HP2 = t3d_lerp(HP2, players[2].hitpoints, 0.5f);
-            HP3 = t3d_lerp(HP3, players[3].hitpoints, 0.5f);
+            for (int i = 0; i < 4; i++)
+            {
+                HP[i] = t3d_lerp(HP[i], players[i].hitpoints, 0.5f);
+            }
 
             // Draw green HP bars first
             rdpq_set_mode_fill(RGBA32(0, 0xCC, 0, 0xFF));
-            rdpq_fill_rectangle(20, 25, HP0 + 20, 30);
-            rdpq_fill_rectangle(200, 20, HP1 + 200, 25);
-            rdpq_fill_rectangle(20, 200, HP2 + 20, 205);
-            rdpq_fill_rectangle(200, 200, HP3 + 200, 205);
+            rdpq_fill_rectangle(20, 25, HP[0] + 20, 30);
+            rdpq_fill_rectangle(200, 20, HP[1] + 200, 25);
+            rdpq_fill_rectangle(20, 200, HP[2] + 20, 205);
+            rdpq_fill_rectangle(200, 200, HP[3] + 200, 205);
 
             // Then draw red HP bar for missing HP
             rdpq_set_mode_fill(RGBA32(0xCC, 0, 0, 0xFF));
-            rdpq_fill_rectangle(HP0 + 20, 25, 120, 30);
-            rdpq_fill_rectangle(HP1 + 200, 20, 300, 25);
-            rdpq_fill_rectangle(HP2 + 20, 200, 120, 205);
-            rdpq_fill_rectangle(HP3 + 200, 200, 300, 205);
+            rdpq_fill_rectangle(HP[0] + 20, 25, 120, 30);
+            rdpq_fill_rectangle(HP[1] + 200, 20, 300, 25);
+            rdpq_fill_rectangle(HP[2] + 20, 200, 120, 205);
+            rdpq_fill_rectangle(HP[3] + 200, 200, 300, 205);
             // Draw shared 2D overlay (if desired across all modes)
             rdpq_sync_pipe();
             rdpq_set_mode_standard();
