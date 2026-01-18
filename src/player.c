@@ -21,15 +21,7 @@ static inline void player_refresh_aabb(Player *player)
     player->aabb.min.v[1] = player->playerPos.v[1];
     player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
 }
-/*
-static inline bool aabbf_overlaps(const AabbF *a, const AabbF *b)
-{
-    // Use a small epsilon so "just touching" doesn't count as overlap.
-    const float eps = 0.01f;
-    return (a->min.v[0] < (b->max.v[0] - eps) && a->max.v[0] > (b->min.v[0] + eps)) &&
-           (a->min.v[1] < (b->max.v[1] - eps) && a->max.v[1] > (b->min.v[1] + eps)) &&
-           (a->min.v[2] < (b->max.v[2] - eps) && a->max.v[2] > (b->min.v[2] + eps));
-}*/
+
 
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
@@ -343,6 +335,10 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
                 }
                 t3d_anim_set_time(&player->animPunch, 0.0f);
             }
+            // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+            // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+            player->skel->bones[0].hasChanged = true;
+            t3d_skeleton_update(player->skel);
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],

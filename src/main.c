@@ -49,7 +49,6 @@ T3DVec3 spawnPositions[] = {
     (T3DVec3){{0, 0.15f, 100}},
 };
 
-//T3DAnim animPunch[4], animIdle[4];
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
@@ -57,8 +56,6 @@ enum GameMode {
     GAME_MODE_RESET,
     GAME_MODE_END
 };
-
-
 
 #define STRINGIFY(x) #x
 #define STYLE(id) "^0" STRINGIFY(id)
@@ -391,18 +388,11 @@ int main(void)
                 }
                 for (int i = 0; i < 4; i++)
                 {
-
                     // Only do this for alive players
                     if (!players[i].alive)
                         continue;
-
                     // Actually do the update
                     player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
-
-                    // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
-                    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
-                    players[i].skel->bones[0].hasChanged = true;
-                    t3d_skeleton_update(players[i].skel);
                 }
 
                 // Update weapons
