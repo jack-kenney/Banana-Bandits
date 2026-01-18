@@ -39,7 +39,6 @@ int gameMode, frameIdx;
 int *winner;
 float HP[4], lastTime;
 sprite_t *spriteBanana;
-bool gameCleanedUp = false;
 xm64player_t musicPlayer;
 wav64_t dominating;
 T3DVec3 spawnPositions[] = {
@@ -136,8 +135,6 @@ void game_cleanup()
         t3d_anim_destroy(&players[i].animIdle);
         t3d_anim_destroy(&players[i].animPunch);
     }
-
-    gameCleanedUp = true;
 }
 
 // Function to set up the players & game, called when a new game is started
@@ -179,8 +176,6 @@ void game_start()
 
     // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
-
-    gameCleanedUp = false;
 }
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
 void game_init()
