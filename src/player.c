@@ -159,8 +159,6 @@ static void collision_detect(Player *player)
         player_refresh_aabb(&players[i]);
     }
 
-    if (!player->attacking || !player->hasWeapon || !player->weapon)
-        return;
 }
 
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx)
