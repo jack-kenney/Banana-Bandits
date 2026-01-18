@@ -213,7 +213,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         // player->attacking = true;
         // player->attackFrame = 0;
         set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
-        player->weapon->isAttack = true;
+        if (player->weapon)
+            player->weapon->isAttack = true;
     }
 
     /*
