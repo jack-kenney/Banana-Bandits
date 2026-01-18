@@ -113,8 +113,6 @@ void game_reset(T3DVec3 spawnPositions[4]){
         players[i].currSpeed = 0.0f;
         players[i].moveDir = (T3DVec3){{0,0,0}};
         players[i].rotY = 0.0f;
-        players[i].attacking = false;
-        players[i].attackFrame = 0;
         players[i].hasWeapon = false;
         if(players[i].weapon){
             players[i].weapon->equipped = false;

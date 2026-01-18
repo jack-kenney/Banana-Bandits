@@ -29,7 +29,6 @@ typedef struct
     int isHittable;
     T3DVec3 moveDir;
     bool alive;
-    bool attacking;
     T3DVec3 playerPos;
     float currSpeed;
     float rotY;
@@ -42,7 +41,6 @@ typedef struct
     int handBoneIdx;
     Weapon *weapon;
     bool hasWeapon;
-    int attackFrame;
     AabbF aabb;
     PlayerState state;
 } Player;

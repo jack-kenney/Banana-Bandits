@@ -43,8 +43,6 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->alive = true;
     player->isHittable = 0;
     player->hitpoints = 100.0f;
-    player->attacking = false;
-    //player->attackFrame = 0;
     player->weapon = NULL;
     player->hasWeapon = false;
     player->state.s = STATE_IDLE;
