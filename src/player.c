@@ -215,6 +215,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
     }
 
+    /*
     if (player->state.s == STATE_ATTACK)
     {
         player->state.frame += 1;
@@ -226,6 +227,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
                 player->weapon->attackFrame = 0;
         }
     }
+    */
 
     if (joybtns.a && !player->asc && player->jumpFrame == 0)
         player->asc = true;
@@ -333,6 +335,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
             t3d_skeleton_reset(player->skel);
             t3d_anim_update(&player->animIdle, 0.0f);
+            if (player->weapon)
+                player->weapon->attackFrame = 0;
         }
     }
     else
