@@ -54,6 +54,18 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices    
     player->handBoneIdx = t3d_skeleton_find_bone(player->skel, "Bone.011");
 
+    player->animIdle = t3d_anim_create(model, "bananaJump");
+    t3d_anim_set_looping(&player->animIdle, true);
+    t3d_anim_set_playing(&player->animIdle, true);
+    t3d_anim_set_speed(&player->animIdle, 1.0f);
+    t3d_anim_attach(&player->animIdle, player->skel);
+
+    player->animPunch = t3d_anim_create(model, "bananaWorm");
+    t3d_anim_set_looping(&player->animPunch, false);
+    t3d_anim_set_playing(&player->animPunch, false);
+    t3d_anim_set_speed(&player->animPunch, 2.0f);
+    t3d_anim_attach(&player->animPunch, player->skel);
+
     //model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();     
         rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
@@ -159,7 +171,7 @@ static void collision_detect(Player *player)
 
 }
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx)
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime)
 {
     float speed = 0.0f;
     T3DVec3 newDir = {0};
@@ -301,7 +313,36 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon = NULL;
         }
     }
+            // Update base pose
+            t3d_anim_update(&player->animIdle, deltaTime);
 
+            // Attack overrides base while active
+            if (player->state.s == STATE_ATTACK)
+            {
+                if (!player->animPunch.isPlaying)
+                {
+                    t3d_anim_set_playing(&player->animPunch, true);
+                    t3d_anim_set_time(&player->animPunch, 0.0f);
+                }
+                t3d_anim_update(&player->animPunch, deltaTime);
+
+                // If the non-looping animation finished, drop back to idle
+                if (!player->animPunch.isPlaying)
+                {
+                    set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+                    t3d_skeleton_reset(player->skel);
+                    t3d_anim_update(&player->animIdle, 0.0f);
+                }
+            }
+            else
+            {
+                // Ensure next attack starts from the beginning
+                if (player->animPunch.isPlaying)
+                {
+                    t3d_anim_set_playing(&player->animPunch, false);
+                }
+                t3d_anim_set_time(&player->animPunch, 0.0f);
+            }
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],

@@ -49,7 +49,7 @@ T3DVec3 spawnPositions[] = {
     (T3DVec3){{0, 0.15f, 100}},
 };
 
-T3DAnim animPunch[4], animIdle[4];
+//T3DAnim animPunch[4], animIdle[4];
 enum GameMode {
     GAME_MODE_PLAY,
     GAME_MODE_MENU,
@@ -136,8 +136,8 @@ void game_cleanup()
 
     for (int i = 0; i < 4; i++)
     {
-        t3d_anim_destroy(&animIdle[i]);
-        t3d_anim_destroy(&animPunch[i]);
+        t3d_anim_destroy(&players[i].animIdle);
+        t3d_anim_destroy(&players[i].animPunch);
     }
 
     gameCleanedUp = true;
@@ -177,19 +177,6 @@ void game_start()
     for (int i = 0; i < 4; i++)
     {
         player_init(&players[i], spawnPositions[i], modelBanana);
-        // Base animation (always running)
-        animIdle[i] = t3d_anim_create(modelBanana, "bananaJump");
-        t3d_anim_set_looping(&animIdle[i], true);
-        t3d_anim_set_playing(&animIdle[i], true);
-        t3d_anim_set_speed(&animIdle[i], 1.0f);
-        t3d_anim_attach(&animIdle[i], players[i].skel);
-
-        // Attack animation (overrides base while playing)
-        animPunch[i] = t3d_anim_create(modelBanana, "bananaWorm");
-        t3d_anim_set_looping(&animPunch[i], false);
-        t3d_anim_set_playing(&animPunch[i], false);
-        t3d_anim_set_speed(&animPunch[i], 2.0f);
-        t3d_anim_attach(&animPunch[i], players[i].skel);
     }
 
     // These are used for drawing players' HP bars
@@ -410,38 +397,7 @@ int main(void)
                         continue;
 
                     // Actually do the update
-                    player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx);
-
-                    // Update base pose
-                    t3d_anim_update(&animIdle[i], deltaTime);
-
-                    // Attack overrides base while active
-                    if (players[i].state.s == STATE_ATTACK)
-                    {
-                        if (!animPunch[i].isPlaying)
-                        {
-                            t3d_anim_set_playing(&animPunch[i], true);
-                            t3d_anim_set_time(&animPunch[i], 0.0f);
-                        }
-                        t3d_anim_update(&animPunch[i], deltaTime);
-
-                        // If the non-looping animation finished, drop back to idle
-                        if (!animPunch[i].isPlaying)
-                        {
-                            set_player_state(&players[i], (PlayerState){.s = STATE_IDLE, .frame = 0});
-                            t3d_skeleton_reset(players[i].skel);
-                            t3d_anim_update(&animIdle[i], 0.0f);
-                        }
-                    }
-                    else
-                    {
-                        // Ensure next attack starts from the beginning
-                        if (animPunch[i].isPlaying)
-                        {
-                            t3d_anim_set_playing(&animPunch[i], false);
-                        }
-                        t3d_anim_set_time(&animPunch[i], 0.0f);
-                    }
+                    player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
 
                     // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
                     // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.

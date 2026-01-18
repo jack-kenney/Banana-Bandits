@@ -6,6 +6,7 @@
 #include <libdragon.h>
 #include <t3d/t3dskeleton.h>
 #include "collision.h"
+#include <t3d/t3danim.h>
 
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
@@ -42,6 +43,7 @@ typedef struct
     Weapon *weapon;
     bool hasWeapon;
     AabbF aabb;
+    T3DAnim animIdle, animPunch;
     PlayerState state;
 } Player;
 
@@ -69,7 +71,7 @@ extern Weapon pipes[2];
 
 /* Player API */
 void player_init(Player *player, T3DVec3 position, T3DModel *model);
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx);
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
 void player_cleanup(Player *player);
 void set_player_state(Player *player, PlayerState newState);
 
