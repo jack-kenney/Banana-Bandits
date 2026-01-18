@@ -148,7 +148,7 @@ void game_start()
     winner = malloc(sizeof(int));
     *winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe2.t3dm");
-    modelBanana = t3d_model_load("rom:/banana_arm1_b4.t3dm");
+    modelBanana = t3d_model_load("rom:/banana_arm1_b4_new_low_poly.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
     hitbubbleFP = malloc_uncached(sizeof(T3DMat4FP));
     debugf("Banana model AABB: Min(%d, %d, %d) Max(%d, %d, %d)\n",
