@@ -55,7 +55,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_looping(&player->animPunch, false);
     t3d_anim_set_playing(&player->animPunch, false);
     t3d_anim_set_speed(&player->animPunch, 2.0f);
-    t3d_anim_attach(&player->animPunch, player->skel);
+    t3d_anim_attach(&player->animPunch, player->skelBlend);
 
     // model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();
@@ -331,7 +331,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon = NULL;
         }
     }
-    // Update base pose
+
     t3d_anim_update(&player->animIdle, deltaTime);
 
     // Attack overrides base while active
@@ -367,10 +367,20 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         }
         t3d_anim_set_time(&player->animPunch, 0.0f);
     }
+    
+    float animBlend = 1 / (player->state.frame / 18.0f);
+    if(animBlend > 1.0f) animBlend = 1.0f;
+    // Update base pose
+    
+    // We now blend the walk animation with the idle/attack one
+    if(player->state.s == STATE_ATTACK)
+        t3d_skeleton_blend(player->skel, player->skel, player->skelBlend, animBlend);
+    t3d_skeleton_update(player->skel);
+
     // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
     // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+
     player->skel->bones[0].hasChanged = true;
-    t3d_skeleton_update(player->skel);
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
