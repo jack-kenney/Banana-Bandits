@@ -324,6 +324,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     // Attack overrides base while active
     if (player->state.s == STATE_ATTACK)
     {
+        player->state.frame += 1;
         if (!player->animPunch.isPlaying)
         {
             t3d_anim_set_playing(&player->animPunch, true);

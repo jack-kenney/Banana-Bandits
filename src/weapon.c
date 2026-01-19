@@ -173,7 +173,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         weapon_refresh_aabb(pipe);
 
         // Apply weapon hits via AABB overlap against player AABBs.
-        if (pipe->isAttack)
+        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15)
         {
             T3DVec3 attackDir;
             t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
