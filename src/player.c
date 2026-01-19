@@ -171,6 +171,19 @@ static void collision_detect(Player *player)
 
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime)
 {
+    
+    if(player->state.s == STATE_HITLAG)
+    {
+        //player->isHittable += 1;
+        player->state.frame += 1;
+        if (player->state.frame >= 10)
+        {
+            player->state.frame = 0;
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+        }
+        return;
+    }
+    
     float speed = 0.0f;
     T3DVec3 newDir = {0};
     joypad_inputs_t joypad = joypad_get_inputs(port);

@@ -19,7 +19,8 @@ typedef struct
         STATE_WALK,
         STATE_JUMP,
         STATE_ATTACK,
-        STATE_DEAD
+        STATE_DEAD,
+        STATE_HITLAG
     } s;
     uint8_t frame;
 } PlayerState;

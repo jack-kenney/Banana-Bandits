@@ -40,7 +40,7 @@ int *winner;
 float HP[4], lastTime;
 sprite_t *spriteBanana;
 xm64player_t musicPlayer;
-wav64_t dominating;
+wav64_t dominating, smack1, smack2, smack3, smack4;
 T3DVec3 spawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, -100}},
@@ -211,6 +211,10 @@ void game_init()
     t3d_vec3_norm(&lightDirVec);
     gameMode = GAME_MODE_MENU;
     wav64_open(&dominating, "rom:/dominating.wav64");
+    wav64_open(&smack1, "rom:/smack1.wav64");
+    wav64_open(&smack2, "rom:/smack2.wav64");
+    wav64_open(&smack3, "rom:/smack3.wav64");
+    wav64_open(&smack4, "rom:/smack4.wav64");
     mixer_ch_set_vol(SFX_CH, 0.75f, 0.75f);
     // wav64_play(&dominating, SFX_CH);
 

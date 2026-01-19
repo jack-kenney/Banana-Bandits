@@ -8,7 +8,7 @@
 #include "collision.h"
 
 extern Weapon pipes[];
-extern wav64_t dominating;
+extern wav64_t dominating, smack1, smack2, smack3, smack4;
 
 #define FB_COUNT 3
 
@@ -191,8 +191,26 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 if (!aabbf_overlaps(&pipe->aabb, &target->aabb))
                     continue;
 
-                target->isHittable = 15;
+                set_player_state(target, (PlayerState){.s = STATE_HITLAG, .frame = 0});
+                //set_player_state(p, (PlayerState){.s = STATE_HITLAG, .frame = p->state.frame});
+                target->isHittable = 16;
                 target->hitpoints -= pipe->damage;
+                int playIdx = rand() % 4;
+                switch (playIdx)
+                {
+                    case 0:
+                        wav64_play(&smack1, 28);
+                        break;
+                    case 1:
+                        wav64_play(&smack2, 28);
+                        break;
+                    case 2:
+                        wav64_play(&smack3, 28);
+                        break;
+                    case 3:
+                        wav64_play(&smack4, 28);
+                        break;
+                }
                 if (target->hitpoints <= 0.0f)
                 {
                     wav64_play(&dominating, 30);
