@@ -10,6 +10,7 @@ IMAGE_LIST = $(wildcard $(ASSETS_DIR)/*.png) $(wildcard $(ASSETS_DIR)/core/*.png
 
 SOUND_LIST  = $(wildcard $(ASSETS_DIR)/*.wav) $(wildcard $(ASSETS_DIR)/core/*.wav)
 SOUND2_LIST  = $(wildcard $(ASSETS_DIR)/*.mp3) $(wildcard $(ASSETS_DIR)/core/*.mp3)
+SOUND3_LIST  = $(wildcard $(ASSETS_DIR)/*.xm) $(wildcard $(ASSETS_DIR)/*.XM)
 
 # Warn when no GLB sources found (helps explain why asset rules don't run)
 ifeq ($(strip $(MODEL_LIST)),)
@@ -24,6 +25,8 @@ print-assets:
 	@echo "MODEL_LIST = $(MODEL_LIST)"
 	@echo "ASSETS_LIST = $(ASSETS_LIST)"
 	@echo "SOUND_LIST = $(SOUND_LIST)"
+	@echo "SOUND2_LIST = $(SOUND2_LIST)"
+	@echo "SOUND3_LIST = $(SOUND3_LIST)"
 	
 
 include $(N64_INST)/include/n64.mk
@@ -33,6 +36,8 @@ ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(MODEL_LIST:%.glb=%.t3dm
 ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(IMAGE_LIST:%.png=%.sprite))
 ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(SOUND_LIST:%.wav=%.wav64))
 ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(SOUND2_LIST:%.mp3=%.wav64))
+ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(patsubst %.xm,%.xm64,$(filter %.xm,$(SOUND3_LIST))))
+ASSETS_LIST += $(subst $(ASSETS_DIR),$(FILESYSTEM_DIR),$(patsubst %.XM,%.xm64,$(filter %.XM,$(SOUND3_LIST))))
 
 
 # Ensure a DFS artifact is produced from the assets; included n64.mk may provide the recipe.
@@ -65,6 +70,16 @@ $(FILESYSTEM_DIR)/%.wav64: $(ASSETS_DIR)/%.wav
 $(FILESYSTEM_DIR)/%.wav64: $(ASSETS_DIR)/%.mp3
 	@mkdir -p $(dir $@)
 	@echo "    [SFX] $@"
+	$(N64_AUDIOCONV) $(AUDIOCONV_FLAGS) -o $(dir $@) "$<"
+
+$(FILESYSTEM_DIR)/%.xm64: $(ASSETS_DIR)/%.xm
+	@mkdir -p $(dir $@)
+	@echo "    [AUDIO] $@"
+	$(N64_AUDIOCONV) $(AUDIOCONV_FLAGS) -o $(dir $@) "$<"
+	
+$(FILESYSTEM_DIR)/%.xm64: $(ASSETS_DIR)/%.XM
+	@mkdir -p $(dir $@)
+	@echo "    [AUDIO] $@"
 	$(N64_AUDIOCONV) $(AUDIOCONV_FLAGS) -o $(dir $@) "$<"
 
 OBJS = $(BUILD_DIR)/main.o \

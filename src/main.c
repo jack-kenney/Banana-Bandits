@@ -2,6 +2,7 @@
     TODOS
 - remove audio_pump()
 - make more functions for clarity (so that main() is actually readable)
+
 */
 
 #include <stdio.h>
@@ -226,6 +227,8 @@ void game_init()
 
     // Prime a few buffers so playback starts immediately.
     audio_pump(2);
+    xm64player_open(&musicPlayer, "rom:/AQUA.xm64");
+    xm64player_play(&musicPlayer, 0);
     modelMap = t3d_model_load("rom:/map1.t3dm");
     rdpq_font_t *fnt = rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_MONO);
     rdpq_font_style(fnt, STYLE_TITLE, &(rdpq_fontstyle_t){RGBA32(0xAA, 0xAA, 0xFF, 0xFF)});
