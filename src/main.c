@@ -533,7 +533,6 @@ int main(void)
         break;
         case GAME_MODE_MENU:
         {
-            game_reset(spawnPositions);
             // draw menu here
             //  ======== Draw (UI) ======== //
             rspq_block_run(dplMap);

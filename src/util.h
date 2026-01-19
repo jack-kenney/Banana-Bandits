@@ -19,7 +19,6 @@ typedef struct {
 } perf_stats_t;
 
 
-void game_reset(T3DVec3 spawnPositions[4]);
 void did_i_win(int *winner);
 
 void audio_pump(int max_buffers);
