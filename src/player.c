@@ -35,7 +35,6 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     player->isHittable = 0;
     player->hitpoints = 100.0f;
     player->weapon = NULL;
-    player->hasWeapon = false;
     player->state.s = STATE_IDLE;
     player->state.frame = 0;
     player_refresh_aabb(player);
@@ -88,6 +87,55 @@ void player_cleanup(Player *player)
     free_uncached(player->modelMatFP);
 }
 
+void drop_weapon(Player *player)
+{
+    Weapon *dropped = player->weapon;
+
+    dropped->equipped = false;
+    dropped->attachedPlayer = NULL;
+    dropped->isAttack = false;
+    dropped->attackFrame = 0;
+
+    // Drop it a bit in front of the player so it's out of pickup overlap.
+    T3DVec3 dropDir = player->moveDir;
+    dropDir.v[1] = 0.0f;
+    float len2 = t3d_vec3_len2(&dropDir);
+    if (len2 < 0.0001f)
+    {
+        // If not moving, use facing direction from rotY.
+        dropDir.v[0] = sinf(player->rotY);
+        dropDir.v[1] = 0.0f;
+        dropDir.v[2] = cosf(player->rotY);
+    }
+    else
+    {
+        float invLen = 1.0f / sqrtf(len2);
+        t3d_vec3_scale(&dropDir, &dropDir, invLen);
+    }
+
+    const float dropDistance = 70.0f;
+    dropped->wepPos.v[0] = player->playerPos.v[0] + dropDir.v[0] * dropDistance;
+    dropped->wepPos.v[2] = player->playerPos.v[2] + dropDir.v[2] * dropDistance;
+    dropped->wepPos.v[1] = 0.15f;
+
+    // Keep within arena bounds.
+    const float BOX_SIZE = 240.0f;
+    if (dropped->wepPos.v[0] < -BOX_SIZE)
+        dropped->wepPos.v[0] = -BOX_SIZE;
+    if (dropped->wepPos.v[0] > BOX_SIZE)
+        dropped->wepPos.v[0] = BOX_SIZE;
+    if (dropped->wepPos.v[2] < -BOX_SIZE)
+        dropped->wepPos.v[2] = -BOX_SIZE;
+    if (dropped->wepPos.v[2] > BOX_SIZE)
+        dropped->wepPos.v[2] = BOX_SIZE;
+
+    if (dropped->hit)
+        *dropped->hit = dropped->wepPos;
+    weapon_refresh_aabb(dropped);
+
+    player->weapon = NULL;
+}
+
 // internal helper: collision detection
 static void collision_detect(Player *player)
 {
@@ -95,7 +143,7 @@ static void collision_detect(Player *player)
     {
         if (player == pipes[i].attachedPlayer)
             continue;
-        if (player->hasWeapon)
+        if (player->weapon)
             continue;
         if (pipes[i].equipped)
             continue;
@@ -104,7 +152,6 @@ static void collision_detect(Player *player)
         if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb))
             continue;
 
-        player->hasWeapon = true;
         player->weapon = &pipes[i];
         pipes[i].equipped = true;
         pipes[i].attachedPlayer = player;
@@ -308,54 +355,9 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     if (joybtns.c_up)
     {
-        if (player->hasWeapon)
+        if (player->weapon)
         {
-            Weapon *dropped = player->weapon;
-
-            dropped->equipped = false;
-            dropped->attachedPlayer = NULL;
-            dropped->isAttack = false;
-            dropped->attackFrame = 0;
-
-            // Drop it a bit in front of the player so it's out of pickup overlap.
-            T3DVec3 dropDir = player->moveDir;
-            dropDir.v[1] = 0.0f;
-            float len2 = t3d_vec3_len2(&dropDir);
-            if (len2 < 0.0001f)
-            {
-                // If not moving, use facing direction from rotY.
-                dropDir.v[0] = sinf(player->rotY);
-                dropDir.v[1] = 0.0f;
-                dropDir.v[2] = cosf(player->rotY);
-            }
-            else
-            {
-                float invLen = 1.0f / sqrtf(len2);
-                t3d_vec3_scale(&dropDir, &dropDir, invLen);
-            }
-
-            const float dropDistance = 70.0f;
-            dropped->wepPos.v[0] = player->playerPos.v[0] + dropDir.v[0] * dropDistance;
-            dropped->wepPos.v[2] = player->playerPos.v[2] + dropDir.v[2] * dropDistance;
-            dropped->wepPos.v[1] = 0.15f;
-
-            // Keep within arena bounds.
-            const float BOX_SIZE = 240.0f;
-            if (dropped->wepPos.v[0] < -BOX_SIZE)
-                dropped->wepPos.v[0] = -BOX_SIZE;
-            if (dropped->wepPos.v[0] > BOX_SIZE)
-                dropped->wepPos.v[0] = BOX_SIZE;
-            if (dropped->wepPos.v[2] < -BOX_SIZE)
-                dropped->wepPos.v[2] = -BOX_SIZE;
-            if (dropped->wepPos.v[2] > BOX_SIZE)
-                dropped->wepPos.v[2] = BOX_SIZE;
-
-            if (dropped->hit)
-                *dropped->hit = dropped->wepPos;
-            weapon_refresh_aabb(dropped);
-
-            player->hasWeapon = false;
-            player->weapon = NULL;
+            drop_weapon(player);
         }
     }
 

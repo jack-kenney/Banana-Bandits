@@ -215,6 +215,10 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 {
                     wav64_play(&dominating, 30);
                     target->alive = false;
+                    if(target->weapon)
+                    {
+                        drop_weapon(target);
+                    }
                 }
             }
         }

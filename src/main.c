@@ -102,7 +102,6 @@ void game_cleanup()
         players[i].skel = NULL;
         players[i].skelBlend = NULL;
         players[i].weapon = NULL;
-        players[i].hasWeapon = false;
         players[i].dplPlayer = NULL;
     }
     if (pipes[0].modelMatFP || pipes[0].hit)
