@@ -1,3 +1,9 @@
+/* 
+    TODOS
+- remove audio_pump()
+- make more functions for clarity (so that main() is actually readable)
+*/
+
 #include <stdio.h>
 #include <math.h>
 #include <t3d/t3d.h>
@@ -238,7 +244,6 @@ int main(void)
 {
     // console_init();
     game_init();
-    // Stay in menu until the user starts a game.
 
     // Lighting colors and screen size, these should probably be moved
     uint8_t colorAmbient[4] = {0xAA, 0xAA, 0xAA, 0xFF};
