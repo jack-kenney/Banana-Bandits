@@ -746,6 +746,7 @@ int main(void)
         }
         else
         {
+            rdpq_sync_full(NULL, NULL);
             rdpq_detach_show();
         }
 

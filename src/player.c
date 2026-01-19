@@ -72,6 +72,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
 
 void set_player_state(Player *player, PlayerState newState)
 {
+    //debugf("Player state changed from %d to %d\n", player->state.s, newState.s);
     player->state = newState;
     //player->state.frame = 0;
 }
@@ -190,6 +191,18 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         return;
     }
     
+    else if (player->state.s == STATE_DODGE)
+    {
+        player->state.frame += 1;
+        player->playerPos.v[0] -= player->moveDir.v[0] * 8.0f;
+        player->playerPos.v[2] -= player->moveDir.v[2] * 8.0f;
+        if (player->state.frame >= 10)
+        {
+            player->state.frame = 0;
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+        }
+        //return;
+    }
     float speed = 0.0f;
     T3DVec3 newDir = {0};
     joypad_inputs_t joypad = joypad_get_inputs(port);
@@ -213,9 +226,13 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     }
     if (joypad.btn.z)
         player->currSpeed = 5.0f;
-    player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
-    player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
 
+    if(player->state.s != STATE_DODGE)
+    {
+        player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
+        player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
+    }
+   
     const float BOX_SIZE = 240.0f;
     if (player->playerPos.v[0] < -BOX_SIZE)
         player->playerPos.v[0] = -BOX_SIZE;
@@ -344,9 +361,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     t3d_anim_update(&player->animIdle, deltaTime);
 
-     if (player->state.s == STATE_DODGE)
+    if (player->state.s == STATE_DODGE)
     {
-        player->state.frame += 1;
         if (!player->animDodge.isPlaying)
         {
             t3d_anim_set_playing(&player->animDodge, true);
@@ -393,22 +409,30 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         {
             t3d_anim_set_playing(&player->animPunch, false);
         }
+        t3d_anim_set_time(&player->animDodge, 0.0f);
         t3d_anim_set_time(&player->animPunch, 0.0f);
     }
     
-    float animBlend = 1 / (player->state.frame / 18.0f);
-    if(animBlend > 1.0f) animBlend = 1.0f;
+    float animBlend = 1.0f;
+    if (player->state.frame > 0)
+    {
+        animBlend = 1.0f / (player->state.frame / 18.0f);
+        if (animBlend > 1.0f)
+            animBlend = 1.0f;
+    }
     // Update base pose
     
+        // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+
+    player->skel->bones[0].hasChanged = true;
+    player->skelBlend->bones[0].hasChanged = true;
     // We now blend the walk animation with the idle/attack one
     if(player->state.s == STATE_ATTACK)
         t3d_skeleton_blend(player->skel, player->skel, player->skelBlend, animBlend);
     t3d_skeleton_update(player->skel);
 
-    // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
-    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
 
-    player->skel->bones[0].hasChanged = true;
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
