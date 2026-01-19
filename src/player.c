@@ -57,6 +57,12 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_speed(&player->animPunch, 2.0f);
     t3d_anim_attach(&player->animPunch, player->skelBlend);
 
+    player->animDodge = t3d_anim_create(model, "bananaDodge");
+    t3d_anim_set_looping(&player->animDodge, false);
+    t3d_anim_set_playing(&player->animDodge, false);
+    t3d_anim_set_speed(&player->animDodge, 1.0f);
+    t3d_anim_attach(&player->animDodge, player->skel);
+
     // model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();
     rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
@@ -230,6 +236,10 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon->isAttack = true;
     }
 
+    if (joybtns.r && !(player->state.s == STATE_DODGE))
+    {
+        set_player_state(player, (PlayerState){.s = STATE_DODGE, .frame = 0});
+    }
     /*
     if (player->state.s == STATE_ATTACK)
     {
@@ -334,8 +344,26 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     t3d_anim_update(&player->animIdle, deltaTime);
 
+     if (player->state.s == STATE_DODGE)
+    {
+        player->state.frame += 1;
+        if (!player->animDodge.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animDodge, true);
+            t3d_anim_set_time(&player->animDodge, 0.0f);
+        }
+        t3d_anim_update(&player->animDodge, deltaTime);
+
+        // If the non-looping animation finished, drop back to idle
+        if (!player->animDodge.isPlaying)
+        {
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+            t3d_skeleton_reset(player->skel);
+            t3d_anim_update(&player->animIdle, 0.0f);
+        }
+    }
     // Attack overrides base while active
-    if (player->state.s == STATE_ATTACK)
+    else if (player->state.s == STATE_ATTACK)
     {
         player->state.frame += 1;
         if (!player->animPunch.isPlaying)

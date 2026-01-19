@@ -20,7 +20,8 @@ typedef struct
         STATE_JUMP,
         STATE_ATTACK,
         STATE_DEAD,
-        STATE_HITLAG
+        STATE_HITLAG,
+        STATE_DODGE
     } s;
     uint8_t frame;
 } PlayerState;
@@ -46,7 +47,7 @@ typedef struct
     Weapon *weapon;
     bool hasWeapon;
     AabbF aabb;
-    T3DAnim animIdle, animPunch;
+    T3DAnim animIdle, animPunch, animDodge;
     PlayerState state;
 } Player;
 

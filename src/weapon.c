@@ -171,13 +171,13 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         */
         // Keep weapon AABB in sync; during attacks it's centered at the hit point.
         weapon_refresh_aabb(pipe);
-
+        T3DVec3 attackDir;
+        t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
+        t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
         // Apply weapon hits via AABB overlap against player AABBs.
-        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15)
+        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15 && p->state.s == STATE_ATTACK)
         {
-            T3DVec3 attackDir;
-            t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
-            t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
+
             for (int i = 0; i < 4; i++)
             {
                 Player *target = &players[i];
