@@ -4,48 +4,81 @@
 #include <stdlib.h>
 #include <string.h>
 #include <t3d/t3dskeleton.h>
+#include "collision.h"
 
 #define FB_COUNT 3
+#define PLAYER_AABB_HEIGHT 90.0f
+#define PLAYER_AABB_WIDTH 30.0f
 
 Player players[4];
+
+static inline void player_refresh_aabb(Player *player)
+{
+    player->aabb.min.v[0] = player->playerPos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[0] = player->playerPos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[2] = player->playerPos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[2] = player->playerPos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[1] = player->playerPos.v[1];
+    player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
+}
 
 void player_init(Player *player, T3DVec3 position, T3DModel *model)
 {
     player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
-    player->moveDir = (T3DVec3){{0,0,0}};
+    player->moveDir = (T3DVec3){{0, 0, 0}};
     player->playerPos = position;
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
     player->jumpFrame = 0;
+    player->asc = false;
     player->alive = true;
     player->isHittable = 0;
     player->hitpoints = 100.0f;
-    player->attacking = false;
-    player->attackFrame = 0;
     player->weapon = NULL;
     player->hasWeapon = false;
+    player->state.s = STATE_IDLE;
+    player->state.frame = 0;
+    player_refresh_aabb(player);
     player->skel = malloc_uncached(sizeof(*player->skel));
     *player->skel = t3d_skeleton_create_buffered(model, FB_COUNT);
     player->skelBlend = malloc_uncached(sizeof(*player->skel));
-    *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices    
+    *player->skelBlend = t3d_skeleton_clone(player->skel, false); // optimized for blending, has no matrices
     player->handBoneIdx = t3d_skeleton_find_bone(player->skel, "Bone.011");
 
-    //model = t3d_model_load("rom:/banana.t3dm");
-    rspq_block_begin();     
-        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-        t3d_model_draw_skinned(model, player->skel);
+    player->animIdle = t3d_anim_create(model, "bananaJump");
+    t3d_anim_set_looping(&player->animIdle, true);
+    t3d_anim_set_playing(&player->animIdle, true);
+    t3d_anim_set_speed(&player->animIdle, 1.0f);
+    t3d_anim_attach(&player->animIdle, player->skel);
+
+    player->animPunch = t3d_anim_create(model, "bananaPunch3");
+    t3d_anim_set_looping(&player->animPunch, false);
+    t3d_anim_set_playing(&player->animPunch, false);
+    t3d_anim_set_speed(&player->animPunch, 2.0f);
+    t3d_anim_attach(&player->animPunch, player->skel);
+
+    // model = t3d_model_load("rom:/banana.t3dm");
+    rspq_block_begin();
+    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+    t3d_model_draw_skinned(model, player->skel);
     player->dplPlayer = rspq_block_end();
+}
+
+void set_player_state(Player *player, PlayerState newState)
+{
+    player->state = newState;
+    //player->state.frame = 0;
 }
 
 // Cleanup player resources
 void player_cleanup(Player *player)
 {
-  rspq_block_free(player->dplPlayer);
+    rspq_block_free(player->dplPlayer);
 
-  t3d_skeleton_destroy(player->skel);
-  t3d_skeleton_destroy(player->skelBlend);
+    t3d_skeleton_destroy(player->skel);
+    t3d_skeleton_destroy(player->skelBlend);
 
-  free_uncached(player->modelMatFP);
+    free_uncached(player->modelMatFP);
 }
 
 // internal helper: collision detection
@@ -53,21 +86,21 @@ static void collision_detect(Player *player)
 {
     for (int i = 0; i < 2; i++)
     {
+        if (player == pipes[i].attachedPlayer)
+            continue;
+        if (player->hasWeapon)
+            continue;
+        if (pipes[i].equipped)
+            continue;
 
-        if (player != pipes[i].attachedPlayer)
-        {
-            float dist = t3d_vec3_distance(&player->playerPos, &pipes[i].wepPos);
-            if (dist < 15.0f && !player->hasWeapon)
-            {
-                if (!pipes[i].equipped)
-                {
-                    player->hasWeapon = true;
-                    player->weapon = &pipes[i];
-                    pipes[i].equipped = true;
-                    pipes[i].attachedPlayer = player;
-                }
-            }
-        }
+        // Use AABB overlap for pickup (player world AABB vs weapon pickup AABB).
+        if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb))
+            continue;
+
+        player->hasWeapon = true;
+        player->weapon = &pipes[i];
+        pipes[i].equipped = true;
+        pipes[i].attachedPlayer = player;
     }
 
     if (player->isHittable > 0)
@@ -75,37 +108,82 @@ static void collision_detect(Player *player)
         player->isHittable -= 1;
     }
 
-    if (!player->attacking || !player->hasWeapon || !player->weapon)
-        return;
-
     for (int i = 0; i < 4; i++)
     {
-        if (&players[i] == player)
+        // Resolve each pair only once (collision_detect runs per-player).
+        if (&players[i] <= player)
             continue;
         if (!players[i].alive)
             continue;
 
-        for (int j = 0; j < 2; j++)
-        {
-            if (&pipes[j] != player->weapon)
-                continue;
-            if (!pipes[j].hit)
-                continue;
+        if (!aabbf_overlaps(&player->aabb, &players[i].aabb))
+            continue;
 
-            float diff = t3d_vec3_distance(pipes[j].hit, &players[i].playerPos);
-            if (diff < 50.0f && players[i].isHittable == 0)
-            {
-                players[i].isHittable = 15;
-                players[i].hitpoints -= player->weapon->damage;
-                if (players[i].hitpoints <= 0.0f)
-                    players[i].alive = false;
-            }
+        // Minimum-translation-vector (MTV) resolution in XZ.
+        const float aMinX = player->aabb.min.v[0];
+        const float aMaxX = player->aabb.max.v[0];
+        const float aMinZ = player->aabb.min.v[2];
+        const float aMaxZ = player->aabb.max.v[2];
+
+        const float bMinX = players[i].aabb.min.v[0];
+        const float bMaxX = players[i].aabb.max.v[0];
+        const float bMinZ = players[i].aabb.min.v[2];
+        const float bMaxZ = players[i].aabb.max.v[2];
+
+        // Positive penetration depth along each axis (if overlapping).
+        float penX = fminf(aMaxX - bMinX, bMaxX - aMinX);
+        float penZ = fminf(aMaxZ - bMinZ, bMaxZ - aMinZ);
+
+        if (penX <= 0.0f || penZ <= 0.0f)
+            continue;
+
+        // Add a tiny bias so we don't end up exactly touching and re-trigger due to float jitter.
+        const float sepBias = 0.05f;
+
+        // Choose the axis of least penetration.
+        float pushX = 0.0f;
+        float pushZ = 0.0f;
+        if (penX < penZ)
+        {
+            float aCenterX = 0.5f * (aMinX + aMaxX);
+            float bCenterX = 0.5f * (bMinX + bMaxX);
+            float s = (aCenterX < bCenterX) ? -1.0f : 1.0f;
+            pushX = s * (penX + sepBias);
         }
+        else
+        {
+            float aCenterZ = 0.5f * (aMinZ + aMaxZ);
+            float bCenterZ = 0.5f * (bMinZ + bMaxZ);
+            float s = (aCenterZ < bCenterZ) ? -1.0f : 1.0f;
+            pushZ = s * (penZ + sepBias);
+        }
+
+        // Split the correction between both players.
+        player->playerPos.v[0] += 0.5f * pushX;
+        player->playerPos.v[2] += 0.5f * pushZ;
+        players[i].playerPos.v[0] -= 0.5f * pushX;
+        players[i].playerPos.v[2] -= 0.5f * pushZ;
+
+        player_refresh_aabb(player);
+        player_refresh_aabb(&players[i]);
     }
 }
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx)
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime)
 {
+    
+    if(player->state.s == STATE_HITLAG)
+    {
+        //player->isHittable += 1;
+        player->state.frame += 1;
+        if (player->state.frame >= 10)
+        {
+            player->state.frame = 0;
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+        }
+        return;
+    }
+    
     float speed = 0.0f;
     T3DVec3 newDir = {0};
     joypad_inputs_t joypad = joypad_get_inputs(port);
@@ -141,24 +219,30 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         player->playerPos.v[2] = -BOX_SIZE;
     if (player->playerPos.v[2] > BOX_SIZE)
         player->playerPos.v[2] = BOX_SIZE;
-    collision_detect(player);
-    if (joybtns.b && !player->attacking)
+
+    if (joybtns.b && !(player->state.s == STATE_ATTACK))
     {
-        player->attacking = true;
-        player->attackFrame = 0;
+        // State refactor, delete these later
+        // player->attacking = true;
+        // player->attackFrame = 0;
+        set_player_state(player, (PlayerState){.s = STATE_ATTACK, .frame = 0});
+        if (player->weapon)
+            player->weapon->isAttack = true;
     }
 
-    if (player->attacking)
+    /*
+    if (player->state.s == STATE_ATTACK)
     {
-        player->attackFrame += 1;
-        if (player->attackFrame >= ATK_LENGTH * 2)
+        player->state.frame += 1;
+        if (player->state.frame >= ATK_LENGTH * 2)
         {
-            player->attackFrame = 0;
-            player->attacking = false;
+            player->state.frame = 0;
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
             if (player->weapon)
                 player->weapon->attackFrame = 0;
         }
     }
+    */
 
     if (joybtns.a && !player->asc && player->jumpFrame == 0)
         player->asc = true;
@@ -181,6 +265,10 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->asc = false;
         }
     }
+
+    // Keep the gameplay/debug AABB tied to the final position (including vertical movement).
+    player_refresh_aabb(player);
+
     if (joypad.btn.c_right)
     {
         camPos->v[1] += 2.0f;
@@ -195,12 +283,96 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     {
         if (player->hasWeapon)
         {
-            player->weapon->equipped = false;
-            player->weapon->attachedPlayer = NULL;
+            Weapon *dropped = player->weapon;
+
+            dropped->equipped = false;
+            dropped->attachedPlayer = NULL;
+            dropped->isAttack = false;
+            dropped->attackFrame = 0;
+
+            // Drop it a bit in front of the player so it's out of pickup overlap.
+            T3DVec3 dropDir = player->moveDir;
+            dropDir.v[1] = 0.0f;
+            float len2 = t3d_vec3_len2(&dropDir);
+            if (len2 < 0.0001f)
+            {
+                // If not moving, use facing direction from rotY.
+                dropDir.v[0] = sinf(player->rotY);
+                dropDir.v[1] = 0.0f;
+                dropDir.v[2] = cosf(player->rotY);
+            }
+            else
+            {
+                float invLen = 1.0f / sqrtf(len2);
+                t3d_vec3_scale(&dropDir, &dropDir, invLen);
+            }
+
+            const float dropDistance = 70.0f;
+            dropped->wepPos.v[0] = player->playerPos.v[0] + dropDir.v[0] * dropDistance;
+            dropped->wepPos.v[2] = player->playerPos.v[2] + dropDir.v[2] * dropDistance;
+            dropped->wepPos.v[1] = 0.15f;
+
+            // Keep within arena bounds.
+            const float BOX_SIZE = 240.0f;
+            if (dropped->wepPos.v[0] < -BOX_SIZE)
+                dropped->wepPos.v[0] = -BOX_SIZE;
+            if (dropped->wepPos.v[0] > BOX_SIZE)
+                dropped->wepPos.v[0] = BOX_SIZE;
+            if (dropped->wepPos.v[2] < -BOX_SIZE)
+                dropped->wepPos.v[2] = -BOX_SIZE;
+            if (dropped->wepPos.v[2] > BOX_SIZE)
+                dropped->wepPos.v[2] = BOX_SIZE;
+
+            if (dropped->hit)
+                *dropped->hit = dropped->wepPos;
+            weapon_refresh_aabb(dropped);
+
             player->hasWeapon = false;
             player->weapon = NULL;
         }
     }
+    // Update base pose
+    t3d_anim_update(&player->animIdle, deltaTime);
+
+    // Attack overrides base while active
+    if (player->state.s == STATE_ATTACK)
+    {
+        player->state.frame += 1;
+        if (!player->animPunch.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animPunch, true);
+            t3d_anim_set_time(&player->animPunch, 0.0f);
+        }
+        t3d_anim_update(&player->animPunch, deltaTime);
+
+        // If the non-looping animation finished, drop back to idle
+        if (!player->animPunch.isPlaying)
+        {
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+            t3d_skeleton_reset(player->skel);
+            t3d_anim_update(&player->animIdle, 0.0f);
+            if (player->weapon)
+            {
+                player->weapon->attackFrame = 0;
+                player->weapon->isAttack = false;
+            }
+        }
+    }
+    else
+    {
+        // Ensure next attack starts from the beginning
+        if (player->animPunch.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animPunch, false);
+        }
+        t3d_anim_set_time(&player->animPunch, 0.0f);
+    }
+    // NOTE: Buffered skeleton matrices can switch to a new matrix buffer when any bone changes.
+    // Forcing the root bone as dirty ensures the full hierarchy gets valid matrices every frame.
+    player->skel->bones[0].hasChanged = true;
+    t3d_skeleton_update(player->skel);
+    // Run collision after AABB refresh so overlap tests use current frame positions.
+    collision_detect(player);
     t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
                               (float[3]){0.125f, 0.125f, 0.125f},
                               (float[3]){0.0f, -player->rotY, 0},

@@ -5,9 +5,25 @@
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
 #include <t3d/t3dskeleton.h>
+#include "collision.h"
+#include <t3d/t3danim.h>
 
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
+
+typedef struct
+{
+    enum
+    {
+        STATE_IDLE,
+        STATE_WALK,
+        STATE_JUMP,
+        STATE_ATTACK,
+        STATE_DEAD,
+        STATE_HITLAG
+    } s;
+    uint8_t frame;
+} PlayerState;
 
 typedef struct Weapon Weapon;
 
@@ -17,7 +33,6 @@ typedef struct
     int isHittable;
     T3DVec3 moveDir;
     bool alive;
-    bool attacking;
     T3DVec3 playerPos;
     float currSpeed;
     float rotY;
@@ -30,7 +45,9 @@ typedef struct
     int handBoneIdx;
     Weapon *weapon;
     bool hasWeapon;
-    int attackFrame;
+    AabbF aabb;
+    T3DAnim animIdle, animPunch;
+    PlayerState state;
 } Player;
 
 struct Weapon
@@ -49,6 +66,7 @@ struct Weapon
     T3DVec3 *hit;
     int bobFrame;
     int boneIndexWeapon;
+    AabbF aabb;
 };
 
 extern Player players[4];
@@ -56,12 +74,16 @@ extern Weapon pipes[2];
 
 /* Player API */
 void player_init(Player *player, T3DVec3 position, T3DModel *model);
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx);
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
 void player_cleanup(Player *player);
+void set_player_state(Player *player, PlayerState newState);
 
 /* Weapon API */
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
 void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx);
 void weapon_cleanup(Weapon *weapon);
+
+// Updates weapon->aabb based on current state (pickup vs attack hitbox)
+void weapon_refresh_aabb(Weapon *weapon);
 
 #endif // ENTITIES_H
