@@ -72,6 +72,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
 void set_player_state(Player *player, PlayerState newState)
 {
     //debugf("Player state changed from %d to %d\n", player->state.s, newState.s);
+    player->prevState = player->state;
     player->state = newState;
     //player->state.frame = 0;
 }
@@ -233,7 +234,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
         if (player->state.frame >= 10)
         {
             player->state.frame = 0;
-            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+            set_player_state(player, player->prevState);
         }
         return;
     }

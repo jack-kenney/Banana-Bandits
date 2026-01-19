@@ -192,7 +192,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                     continue;
 
                 set_player_state(target, (PlayerState){.s = STATE_HITLAG, .frame = 0});
-                //set_player_state(p, (PlayerState){.s = STATE_HITLAG, .frame = p->state.frame});
+                set_player_state(p, (PlayerState){.s = STATE_HITLAG, .frame = p->state.frame});
                 target->isHittable = 16;
                 target->hitpoints -= pipe->damage;
                 int playIdx = rand() % 4;

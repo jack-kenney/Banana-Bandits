@@ -47,7 +47,7 @@ typedef struct
     Weapon *weapon;
     AabbF aabb;
     T3DAnim animIdle, animPunch, animDodge;
-    PlayerState state;
+    PlayerState state, prevState;
 } Player;
 
 struct Weapon
