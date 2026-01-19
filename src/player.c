@@ -51,7 +51,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_speed(&player->animIdle, 1.0f);
     t3d_anim_attach(&player->animIdle, player->skel);
 
-    player->animPunch = t3d_anim_create(model, "bananaPunch");
+    player->animPunch = t3d_anim_create(model, "bananaPunch3");
     t3d_anim_set_looping(&player->animPunch, false);
     t3d_anim_set_playing(&player->animPunch, false);
     t3d_anim_set_speed(&player->animPunch, 2.0f);

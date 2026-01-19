@@ -106,9 +106,6 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         T3DMat4 worldBoneMat;
         T3DMat4 weaponBaseMat;
 
-        // Prefer attaching to the animated hand bone.
-        // `t3d_skeleton_get_bone_pos_model_space` returns a position in *model space*,
-        // so we must transform it into *world space* using the same SRT matrix as the player render.
         if (p->handBoneIdx >= 0)
         {
             pipe->boneIndexWeapon = p->handBoneIdx;
@@ -179,7 +176,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         if (pipe->isAttack)
         {
             T3DVec3 attackDir;
-            t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
+            t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
             t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
             for (int i = 0; i < 4; i++)
             {
