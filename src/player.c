@@ -50,7 +50,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_speed(&player->animIdle, 1.0f);
     t3d_anim_attach(&player->animIdle, player->skel);
 
-    player->animPunch = t3d_anim_create(model, "bananaPunch3");
+    player->animPunch = t3d_anim_create(model, "bananaPunch4");
     t3d_anim_set_looping(&player->animPunch, false);
     t3d_anim_set_playing(&player->animPunch, false);
     t3d_anim_set_speed(&player->animPunch, 2.0f);
@@ -62,6 +62,12 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     t3d_anim_set_speed(&player->animDodge, 1.0f);
     t3d_anim_attach(&player->animDodge, player->skel);
 
+    player->animPunch2 = t3d_anim_create(model, "bananaPunch5");
+    t3d_anim_set_looping(&player->animPunch2, false);
+    t3d_anim_set_playing(&player->animPunch2, false);
+    t3d_anim_set_speed(&player->animPunch2, 1.5f);
+    t3d_anim_attach(&player->animPunch2, player->skel);
+
     // model = t3d_model_load("rom:/banana.t3dm");
     rspq_block_begin();
     rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
@@ -71,7 +77,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
 
 void set_player_state(Player *player, PlayerState newState)
 {
-    //debugf("Player state changed from %d to %d\n", player->state.s, newState.s);
+    debugf("Player state changed from %d to %d\n", player->state.s, newState.s);
     player->prevState = player->state;
     player->state = newState;
     //player->state.frame = 0;
@@ -301,6 +307,16 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon->isAttack = true;
     }
 
+    if(joybtns.b && (player->state.s == STATE_ATTACK) && (player->state.frame > 20 && player->state.frame < 30))
+    {
+        // State refactor, delete these later
+        // player->attacking = true;
+        // player->attackFrame = 0;
+        set_player_state(player, (PlayerState){.s = STATE_ATTACK2, .frame = 0});
+        if (player->weapon)
+            player->weapon->isAttack = true;
+    }
+
     if (joybtns.r && !(player->state.s == STATE_DODGE))
     {
         set_player_state(player, (PlayerState){.s = STATE_DODGE, .frame = 0});
@@ -394,6 +410,29 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
         // If the non-looping animation finished, drop back to idle
         if (!player->animPunch.isPlaying)
+        {
+            set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
+            t3d_skeleton_reset(player->skel);
+            t3d_anim_update(&player->animIdle, 0.0f);
+            if (player->weapon)
+            {
+                player->weapon->attackFrame = 0;
+                player->weapon->isAttack = false;
+            }
+        }
+    }
+    else if (player->state.s == STATE_ATTACK2)
+    {
+        player->state.frame += 1;
+        if (!player->animPunch2.isPlaying)
+        {
+            t3d_anim_set_playing(&player->animPunch2, true);
+            t3d_anim_set_time(&player->animPunch2, 0.0f);
+        }
+        t3d_anim_update(&player->animPunch2, deltaTime);
+
+        // If the non-looping animation finished, drop back to idle
+        if (!player->animPunch2.isPlaying)
         {
             set_player_state(player, (PlayerState){.s = STATE_IDLE, .frame = 0});
             t3d_skeleton_reset(player->skel);

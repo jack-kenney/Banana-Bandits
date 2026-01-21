@@ -19,6 +19,7 @@ typedef struct
         STATE_WALK,
         STATE_JUMP,
         STATE_ATTACK,
+        STATE_ATTACK2,
         STATE_DEAD,
         STATE_HITLAG,
         STATE_DODGE
@@ -46,7 +47,7 @@ typedef struct
     int handBoneIdx;
     Weapon *weapon;
     AabbF aabb;
-    T3DAnim animIdle, animPunch, animDodge;
+    T3DAnim animIdle, animPunch, animPunch2, animDodge;
     PlayerState state, prevState;
 } Player;
 

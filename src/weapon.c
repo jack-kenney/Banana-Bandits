@@ -175,7 +175,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
         t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
         // Apply weapon hits via AABB overlap against player AABBs.
-        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15 && p->state.s == STATE_ATTACK)
+        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15 && (p->state.s == STATE_ATTACK || p->state.s == STATE_ATTACK2))
         {
 
             for (int i = 0; i < 4; i++)
