@@ -176,7 +176,9 @@ void game_start()
     // Per-player initialization tasks happen in this loop
     for (int i = 0; i < 4; i++)
     {
-        player_init((Entity *)&players[i], spawnPositions[i], modelBanana);
+        Entity *e = (Entity *)&players[i];
+        e->init = (EntityInitFunc)player_init;
+        e->init(e, spawnPositions[i], modelBanana);
         HP[i] = players[i].hitpoints;
     }
 
