@@ -199,13 +199,13 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 switch (playIdx)
                 {
                     case 0:
-                        wav64_play(&smack1, 28);
+                        wav64_play(&smack1, 22);
                         break;
                     case 1:
-                        wav64_play(&smack2, 28);
+                        wav64_play(&smack2, 24);
                         break;
                     case 2:
-                        wav64_play(&smack3, 28);
+                        wav64_play(&smack3, 26);
                         break;
                     case 3:
                         wav64_play(&smack4, 28);
