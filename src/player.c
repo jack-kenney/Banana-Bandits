@@ -77,6 +77,9 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
 
 void set_player_state(Player *player, PlayerState newState)
 {
+    // Avoid redundant state changes
+    if (player->state.s == newState.s)
+        return;
     debugf("Player state changed from %d to %d\n", player->state.s, newState.s);
     player->prevState = player->state;
     player->state = newState;

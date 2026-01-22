@@ -66,8 +66,7 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
     rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
     t3d_model_draw(model);
     weapon->dplWeapon = rspq_block_end();
-    weapon->dplIdle = weapon->dplWeapon;
-    weapon->dplCarry = weapon->dplWeapon;
+
     // debugf("Weapon initialized and DPLs created.\n");
     // debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
@@ -83,8 +82,6 @@ void weapon_cleanup(Weapon *weapon)
         free_uncached(weapon->hit);
 
     weapon->dplWeapon = NULL;
-    weapon->dplIdle = NULL;
-    weapon->dplCarry = NULL;
     weapon->modelMatFP = NULL;
     weapon->hit = NULL;
     weapon->attachedPlayer = NULL;
