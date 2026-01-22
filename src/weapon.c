@@ -111,7 +111,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             t3d_mat4_from_srt_euler(&playerMat,
                                     (float[3]){0.125f, 0.125f, 0.125f},
                                     (float[3]){0.0f, -p->rotY, 0.0f},
-                                    p->playerPos.v);
+                                    p->e.pos.v);
 
             // Bone matrix is in model space. Compose with player transform to get world space.
             t3d_mat4_mul(&worldBoneMat, &playerMat, boneMat);
@@ -128,7 +128,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         else
         {
             // Fallback if we couldn't resolve a hand bone
-            pipe->wepPos = p->playerPos;
+            pipe->wepPos = p->e.pos;
         }
 
         // Adjust weapon attachment height

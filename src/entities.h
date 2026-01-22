@@ -11,6 +11,22 @@
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
 
+typedef struct Entity Entity;
+
+typedef void (*EntityInitFunc)(Entity *e, T3DVec3 position, T3DModel *model);
+typedef void (*EntityUpdateFunc)(float deltaTime);  
+typedef void (*EntityCleanupFunc)();
+
+typedef struct Entity {
+    T3DVec3 pos;
+    rspq_block_t *dplEntity;
+    T3DMat4FP *modelMatFP;
+    AabbF aabb;
+    EntityInitFunc init;
+    EntityUpdateFunc update;
+    EntityCleanupFunc cleanup;
+} Entity;
+
 typedef struct
 {
     enum
@@ -31,17 +47,18 @@ typedef struct Weapon Weapon;
 
 typedef struct
 {
+    Entity e;
     float hitpoints;
     int isHittable;
     T3DVec3 moveDir;
     bool alive;
-    T3DVec3 playerPos;
+    //T3DVec3 playerPos;
     float currSpeed;
     float rotY;
     int jumpFrame;
     bool asc;
-    rspq_block_t *dplPlayer;
-    T3DMat4FP *modelMatFP;
+    //rspq_block_t *dplPlayer;
+    //T3DMat4FP *modelMatFP;
     T3DSkeleton *skel;
     T3DSkeleton *skelBlend;
     int handBoneIdx;
@@ -53,13 +70,12 @@ typedef struct
 
 struct Weapon
 {
+    Entity e;
     T3DVec3 wepPos;
     bool equipped;
     float damage;
     float rotY;
     rspq_block_t *dplWeapon;
-    rspq_block_t *dplIdle;
-    rspq_block_t *dplCarry;
     Player *attachedPlayer;
     T3DMat4FP *modelMatFP;
     bool isAttack;
@@ -74,7 +90,7 @@ extern Player players[4];
 extern Weapon pipes[2];
 
 /* Player API */
-void player_init(Player *player, T3DVec3 position, T3DModel *model);
+void player_init(Entity *e, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
 void player_cleanup(Player *player);
 void set_player_state(Player *player, PlayerState newState);

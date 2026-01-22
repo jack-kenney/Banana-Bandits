@@ -14,19 +14,20 @@ Player players[4];
 
 static inline void player_refresh_aabb(Player *player)
 {
-    player->aabb.min.v[0] = player->playerPos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.max.v[0] = player->playerPos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.min.v[2] = player->playerPos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.max.v[2] = player->playerPos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.min.v[1] = player->playerPos.v[1];
-    player->aabb.max.v[1] = player->playerPos.v[1] + PLAYER_AABB_HEIGHT;
+    player->aabb.min.v[0] = player->e.pos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[0] = player->e.pos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[2] = player->e.pos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.max.v[2] = player->e.pos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
+    player->aabb.min.v[1] = player->e.pos.v[1];
+    player->aabb.max.v[1] = player->e.pos.v[1] + PLAYER_AABB_HEIGHT;
 }
 
-void player_init(Player *player, T3DVec3 position, T3DModel *model)
+void player_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
-    player->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
+    Player *player = (Player *)e;
+    player->e.modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     player->moveDir = (T3DVec3){{0, 0, 0}};
-    player->playerPos = position;
+    player->e.pos = position;
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
     player->jumpFrame = 0;
@@ -72,7 +73,7 @@ void player_init(Player *player, T3DVec3 position, T3DModel *model)
     rspq_block_begin();
     rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
     t3d_model_draw_skinned(model, player->skel);
-    player->dplPlayer = rspq_block_end();
+    player->e.dplEntity = rspq_block_end();
 }
 
 void set_player_state(Player *player, PlayerState newState)
@@ -89,12 +90,12 @@ void set_player_state(Player *player, PlayerState newState)
 // Cleanup player resources
 void player_cleanup(Player *player)
 {
-    rspq_block_free(player->dplPlayer);
+    rspq_block_free(player->e.dplEntity);
 
     t3d_skeleton_destroy(player->skel);
     t3d_skeleton_destroy(player->skelBlend);
 
-    free_uncached(player->modelMatFP);
+    free_uncached(player->e.modelMatFP);
 }
 
 void drop_weapon(Player *player)
@@ -124,8 +125,8 @@ void drop_weapon(Player *player)
     }
 
     const float dropDistance = 70.0f;
-    dropped->wepPos.v[0] = player->playerPos.v[0] + dropDir.v[0] * dropDistance;
-    dropped->wepPos.v[2] = player->playerPos.v[2] + dropDir.v[2] * dropDistance;
+    dropped->wepPos.v[0] = player->e.pos.v[0] + dropDir.v[0] * dropDistance;
+    dropped->wepPos.v[2] = player->e.pos.v[2] + dropDir.v[2] * dropDistance;
     dropped->wepPos.v[1] = 0.15f;
 
     // Keep within arena bounds.
@@ -223,10 +224,10 @@ static void collision_detect(Player *player)
         }
 
         // Split the correction between both players.
-        player->playerPos.v[0] += 0.5f * pushX;
-        player->playerPos.v[2] += 0.5f * pushZ;
-        players[i].playerPos.v[0] -= 0.5f * pushX;
-        players[i].playerPos.v[2] -= 0.5f * pushZ;
+        player->e.pos.v[0] += 0.5f * pushX;
+        player->e.pos.v[2] += 0.5f * pushZ;
+        players[i].e.pos.v[0] -= 0.5f * pushX;
+        players[i].e.pos.v[2] -= 0.5f * pushZ;
 
         player_refresh_aabb(player);
         player_refresh_aabb(&players[i]);
@@ -251,8 +252,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     else if (player->state.s == STATE_DODGE)
     {
         player->state.frame += 1;
-        player->playerPos.v[0] -= player->moveDir.v[0] * 8.0f;
-        player->playerPos.v[2] -= player->moveDir.v[2] * 8.0f;
+        player->e.pos.v[0] -= player->moveDir.v[0] * 8.0f;
+        player->e.pos.v[2] -= player->moveDir.v[2] * 8.0f;
         if (player->state.frame >= 10)
         {
             player->state.frame = 0;
@@ -286,19 +287,19 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     if(player->state.s != STATE_DODGE)
     {
-        player->playerPos.v[0] += player->moveDir.v[0] * player->currSpeed;
-        player->playerPos.v[2] += player->moveDir.v[2] * player->currSpeed;
+        player->e.pos.v[0] += player->moveDir.v[0] * player->currSpeed;
+        player->e.pos.v[2] += player->moveDir.v[2] * player->currSpeed;
     }
    
     const float BOX_SIZE = 240.0f;
-    if (player->playerPos.v[0] < -BOX_SIZE)
-        player->playerPos.v[0] = -BOX_SIZE;
-    if (player->playerPos.v[0] > BOX_SIZE)
-        player->playerPos.v[0] = BOX_SIZE;
-    if (player->playerPos.v[2] < -BOX_SIZE)
-        player->playerPos.v[2] = -BOX_SIZE;
-    if (player->playerPos.v[2] > BOX_SIZE)
-        player->playerPos.v[2] = BOX_SIZE;
+    if (player->e.pos.v[0] < -BOX_SIZE)
+        player->e.pos.v[0] = -BOX_SIZE;
+    if (player->e.pos.v[0] > BOX_SIZE)
+        player->e.pos.v[0] = BOX_SIZE;
+    if (player->e.pos.v[2] < -BOX_SIZE)
+        player->e.pos.v[2] = -BOX_SIZE;
+    if (player->e.pos.v[2] > BOX_SIZE)
+        player->e.pos.v[2] = BOX_SIZE;
 
     if (joybtns.b && !(player->state.s == STATE_ATTACK))
     {
@@ -345,12 +346,12 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     {
         if (player->jumpFrame < 5)
         {
-            player->playerPos.v[1] += JUMP_HEIGHT;
+            player->e.pos.v[1] += JUMP_HEIGHT;
             player->jumpFrame++;
         }
         else if (player->jumpFrame >= 5 && player->jumpFrame < 10)
         {
-            player->playerPos.v[1] -= JUMP_HEIGHT;
+            player->e.pos.v[1] -= JUMP_HEIGHT;
             player->jumpFrame++;
         }
         else
@@ -480,8 +481,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
     // Run collision after AABB refresh so overlap tests use current frame positions.
     collision_detect(player);
-    t3d_mat4fp_from_srt_euler(&player->modelMatFP[frameIdx],
+    t3d_mat4fp_from_srt_euler(&player->e.modelMatFP[frameIdx],
                               (float[3]){0.125f, 0.125f, 0.125f},
                               (float[3]){0.0f, -player->rotY, 0},
-                              player->playerPos.v);
+                              player->e.pos.v);
 }

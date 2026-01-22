@@ -96,13 +96,13 @@ void game_cleanup()
 {
     for (int i = 0; i < 4; i++)
     {
-        if (players[i].modelMatFP)
+        if (players[i].e.modelMatFP)
             player_cleanup(&players[i]);
-        players[i].modelMatFP = NULL;
+        players[i].e.modelMatFP = NULL;
         players[i].skel = NULL;
         players[i].skelBlend = NULL;
         players[i].weapon = NULL;
-        players[i].dplPlayer = NULL;
+        players[i].e.dplEntity = NULL;
     }
     if (pipes[0].modelMatFP || pipes[0].hit)
         weapon_cleanup(&pipes[0]);
@@ -176,7 +176,7 @@ void game_start()
     // Per-player initialization tasks happen in this loop
     for (int i = 0; i < 4; i++)
     {
-        player_init(&players[i], spawnPositions[i], modelBanana);
+        player_init((Entity *)&players[i], spawnPositions[i], modelBanana);
         HP[i] = players[i].hitpoints;
     }
 
@@ -432,8 +432,8 @@ int main(void)
                     // Buffered skeletons require selecting the active matrices before drawing.
                     // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
                     t3d_skeleton_use(players[i].skel);
-                    t3d_matrix_push(&players[i].modelMatFP[frameIdx]);
-                    rspq_block_run(players[i].dplPlayer);
+                    t3d_matrix_push(&players[i].e.modelMatFP[frameIdx]);
+                    rspq_block_run(players[i].e.dplEntity);
                     t3d_matrix_pop(1);
                 }
             }

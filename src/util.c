@@ -125,7 +125,7 @@ void game_reset(T3DVec3 spawnPositions[4])
     {
         players[i].hitpoints = 100.0f;
         players[i].alive = true;
-        players[i].playerPos = spawnPositions[i];
+        players[i].e.pos = spawnPositions[i];
         players[i].currSpeed = 0.0f;
         players[i].moveDir = (T3DVec3){{0, 0, 0}};
         players[i].rotY = 0.0f;
