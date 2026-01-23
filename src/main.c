@@ -128,10 +128,10 @@ void game_cleanup()
 
     if (hitbubbleFP)
         free_uncached(hitbubbleFP);
-    if (winner)
-        free(winner);
+    //if (winner)
+    //    free(winner);
     hitbubbleFP = NULL;
-    winner = NULL;
+    //winner = NULL;
 
     if (spriteBanana)
         sprite_free(spriteBanana);
@@ -398,9 +398,9 @@ int main(void)
         case GAME_MODE_PLAY:
         {
             // Update players //
-            did_i_win(winner);
+            did_i_win(&winner);
 
-            if (*winner != -1)
+            if (winner != -1)
             {
                 gameMode = GAME_MODE_END;
                 break;
@@ -524,7 +524,7 @@ int main(void)
                     break;
                 case 2:
                     menuSelection = 0;
-                    *winner = -1;
+                    winner = -1;
                     game_cleanup();
                     gameMode = GAME_MODE_MENU;
                     break;
@@ -598,7 +598,7 @@ int main(void)
             rdpq_sync_pipe();
             rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_TITLE) "Game Over!");
             posY += 20;
-            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", *winner + 1);
+            rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREEN) "Player %d Wins!", winner + 1);
             posY += 20;
             rdpq_text_printf(NULL, FONT_BUILTIN_DEBUG_MONO, posX, posY, STYLE(STYLE_GREY) "Press A to return to Menu");
 
