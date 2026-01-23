@@ -17,6 +17,11 @@ typedef void (*EntityInitFunc)(Entity *e, T3DVec3 position, T3DModel *model);
 typedef void (*EntityUpdateFunc)(float deltaTime);  
 typedef void (*EntityCleanupFunc)();
 
+typedef enum {
+    E_PLAYER,
+    E_WEAPON
+} EntityType;
+
 typedef struct Entity {
     T3DVec3 pos;
     rspq_block_t *dplEntity;
@@ -25,6 +30,7 @@ typedef struct Entity {
     EntityInitFunc init;
     EntityUpdateFunc update;
     EntityCleanupFunc cleanup;
+    EntityType type; 
 } Entity;
 
 typedef struct
@@ -66,6 +72,7 @@ typedef struct
     AabbF aabb;
     T3DAnim animIdle, animPunch, animPunch2, animDodge;
     PlayerState state, prevState;
+    EntityType type;
 } Player;
 
 struct Weapon
@@ -86,7 +93,7 @@ struct Weapon
     AabbF aabb;
 };
 
-extern Player players[4];
+//extern Player players[4];
 extern Weapon pipes[2];
 /* Player API */
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
@@ -96,7 +103,7 @@ void set_player_state(Player *player, PlayerState newState);
 
 /* Weapon API */
 void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
-void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx);
+void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx, Entity * entities[], int numPlayers);
 void weapon_cleanup(Weapon *weapon);
 void drop_weapon(Player *player);
 

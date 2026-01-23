@@ -25,6 +25,7 @@ static inline void player_refresh_aabb(Player *player)
 void player_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
     Player *player = (Player *)e;
+    player->e.type = E_PLAYER;
     player->e.modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     player->moveDir = (T3DVec3){{0, 0, 0}};
     player->e.pos = position;

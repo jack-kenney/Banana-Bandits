@@ -19,7 +19,7 @@ typedef struct {
 } perf_stats_t;
 
 
-void did_i_win(int *winner);
+void did_i_win(int *winner, Entity *entities[], int numPlayers);
 
 void audio_pump(int max_buffers);
 uint64_t ticks_to_us(uint64_t ticks);

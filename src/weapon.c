@@ -87,7 +87,7 @@ void weapon_cleanup(Weapon *weapon)
     weapon->attachedPlayer = NULL;
     weapon->equipped = false;
 }
-void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
+void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx, Entity * entities[], int numPlayers)
 {
     pipe->bobFrame += 1;
     if (pipe->bobFrame >= 30)
@@ -175,9 +175,9 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
         if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15 && (p->state.s == STATE_ATTACK || p->state.s == STATE_ATTACK2))
         {
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < numPlayers; i++)
             {
-                Player *target = &players[i];
+                Player *target = (Player *)entities[i];
                 if (!target->alive)
                     continue;
                 if (target == p)

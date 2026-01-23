@@ -72,6 +72,8 @@ enum GameMode
 
 Weapon pipes[2];
 Entity *entities[6];
+int numEntities;
+int numPlayers = 4;
 
 rspq_syncpoint_t syncPoint;
 
@@ -93,6 +95,7 @@ static uint64_t perf_prev_mixer_ticks = 0;
 static rspq_profile_data_t perf_prev_rspq = {0};
 
 // Function to cleanup game resources
+/*
 void game_cleanup()
 {
     for (int i = 0; i < 4; i++)
@@ -143,7 +146,63 @@ void game_cleanup()
         t3d_anim_destroy(&players[i].animPunch);
     }
 }
+*/
+void game_cleanup() 
+{
+     for (int i = 0; i < numEntities; i++)
+    {
+        switch (entities[i]->type) 
+        {
+            case E_PLAYER:
+                if (entities[i]->modelMatFP)
+                    player_cleanup((Player *)entities[i]);
+                ((Player *)entities[i])->e.modelMatFP = NULL;
+                ((Player *)entities[i])->skel = NULL;
+                ((Player *)entities[i])->skelBlend = NULL;
+                ((Player *)entities[i])->weapon = NULL;
+                ((Player *)entities[i])->e.dplEntity = NULL;
+                break;
+            case E_WEAPON:
+                if (((Weapon *)entities[i])->modelMatFP || ((Weapon *)entities[i])->hit)
+                    weapon_cleanup((Weapon *)entities[i]);
+                break;
+            default:
+                break;
+        }
+    }
+    // rspq_block_free(dplMap);
+    if (dplHitbubble)
+        rspq_block_free(dplHitbubble);
+    dplHitbubble = NULL;
 
+    if (modelWeapon)
+        t3d_model_free(modelWeapon);
+    if (modelBanana)
+        t3d_model_free(modelBanana);
+    if (modelHitbubble)
+        t3d_model_free(modelHitbubble);
+
+    modelWeapon = NULL;
+    modelBanana = NULL;
+    modelHitbubble = NULL;
+
+    if (hitbubbleFP)
+        free_uncached(hitbubbleFP);
+    //if (winner)
+    //    free(winner);
+    hitbubbleFP = NULL;
+    //winner = NULL;
+
+    if (spriteBanana)
+        sprite_free(spriteBanana);
+    spriteBanana = NULL;
+
+    for (int i = 0; i < 4; i++)
+    {
+        t3d_anim_destroy(&((Player *)entities[i])->animIdle);
+        t3d_anim_destroy(&((Player *)entities[i])->animPunch);
+    }
+}
 // Function to set up the players & game, called when a new game is started
 void game_start()
 {
@@ -174,12 +233,14 @@ void game_start()
     lastTime = get_time_s() - (1.0f / 60.0f);
     frameIdx = 0;
     // Per-player initialization tasks happen in this loop
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < numPlayers; i++)
     {
-        Entity *e = (Entity *)&players[i];
-        e->init = (EntityInitFunc)player_init;
-        e->init(e, spawnPositions[i], modelBanana);
-        HP[i] = players[i].hitpoints;
+        Player *p = malloc(sizeof(Player));
+        entities[i] = (Entity *)p;
+        //Entity *e = (Entity *)&players[i];
+        p->e.init = (EntityInitFunc)player_init;
+        p->e.init((Entity *)p, spawnPositions[i], modelBanana);
+        HP[i] = p->hitpoints;
     }
 
     // Load p1 HP bar sprite
@@ -398,25 +459,26 @@ int main(void)
         case GAME_MODE_PLAY:
         {
             // Update players //
-            did_i_win(&winner);
+            did_i_win(&winner, entities, numPlayers);
 
             if (winner != -1)
             {
                 gameMode = GAME_MODE_END;
                 break;
             }
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < numEntities; i++)
             {
                 // Only do this for alive players
-                if (!players[i].alive)
-                    continue;
+                //if (!players[i].alive)
+                //    continue;
                 // Actually do the update
-                player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
+                //player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
+                entities[i]->update(deltaTime);
             }
 
             // Update weapons
-            pipe_movement(&pipes[0], globalYrot, frameIdx);
-            pipe_movement(&pipes[1], globalYrot, frameIdx);
+            pipe_movement(&pipes[0], globalYrot, frameIdx, entities, numPlayers);
+            pipe_movement(&pipes[1], globalYrot, frameIdx, entities, numPlayers);
             for (int i = 0; i < 2; i++)
             {
                 t3d_mat4fp_from_srt_euler(hitbubbleFP,
@@ -429,13 +491,14 @@ int main(void)
             // Draw players
             for (int i = 0; i < 4; i++)
             {
-                if (players[i].alive && (players[i].isHittable % 2 == 0))
+                if (((Player *)entities[i])->alive && (((Player *)entities[i])->isHittable % 2 == 0))
                 {
+                    debugf("Drawing player %d\n", i + 1);
                     // Buffered skeletons require selecting the active matrices before drawing.
                     // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
-                    t3d_skeleton_use(players[i].skel);
-                    t3d_matrix_push(&players[i].e.modelMatFP[frameIdx]);
-                    rspq_block_run(players[i].e.dplEntity);
+                    t3d_skeleton_use(((Player *)entities[i])->skel);
+                    t3d_matrix_push(&((Player *)entities[i])->e.modelMatFP[frameIdx]);
+                    rspq_block_run(((Player *)entities[i])->e.dplEntity);
                     t3d_matrix_pop(1);
                 }
             }
@@ -443,8 +506,9 @@ int main(void)
             // Draw weapons
             for (int i = 0; i < 2; i++)
             {
-                t3d_matrix_push(&pipes[i].modelMatFP[frameIdx]);
-                rspq_block_run(pipes[i].dplWeapon);
+                debugf("Drawing weapon %d\n", i + 1);
+                t3d_matrix_push(&((Weapon *)entities[numPlayers + i])->modelMatFP[frameIdx]);
+                rspq_block_run(((Weapon *)entities[numPlayers + i])->dplWeapon);
                 t3d_matrix_pop(1);
             }
 
@@ -456,7 +520,7 @@ int main(void)
             // Get all players HP and linearly interpolate for smooth bar movement
             for (int i = 0; i < 4; i++)
             {
-                HP[i] = t3d_lerp(HP[i], players[i].hitpoints, 0.5f);
+                HP[i] = t3d_lerp(HP[i], ((Player *)entities[i])->hitpoints, 0.5f);
             }
 
             // Draw green HP bars first
@@ -678,12 +742,11 @@ int main(void)
 
                 for (int p = 0; p < 4; p++)
                 {
-                    if (!players[p].alive)
+                    if (!((Player *)entities[p])->alive)
                         continue;
 
                     // Use the gameplay AABB tied to the player (world-space).
-                    AabbF query = players[p].aabb;
-
+                    AabbF query = ((Player *)entities[p])->aabb;
                     // Draw the query AABB.
                     debug_draw_aabbf(surface, &viewport, &query, queryColor);
 
@@ -737,9 +800,9 @@ int main(void)
 
             for (int i = 0; i < 4; i++)
             {
-                if (!players[i].alive)
+                if (!((Player *)entities[i])->alive)
                     continue;
-                debug_draw_aabbf(surface, &viewport, &players[i].aabb, colors[i]);
+                debug_draw_aabbf(surface, &viewport, &((Player *)entities[i])->aabb, colors[i]);
             }
 
             display_show(surface);

@@ -119,22 +119,22 @@ float get_time_s(void)
     return (float)((double)get_ticks_us() / 1000000.0);
 }
 
-void game_reset(T3DVec3 spawnPositions[4])
+void game_reset(T3DVec3 spawnPositions[4], Entity * entities[], int numPlayers)
 {
     for (int i = 0; i < 4; i++)
     {
-        players[i].hitpoints = 100.0f;
-        players[i].alive = true;
-        players[i].e.pos = spawnPositions[i];
-        players[i].currSpeed = 0.0f;
-        players[i].moveDir = (T3DVec3){{0, 0, 0}};
-        players[i].rotY = 0.0f;
-        if (players[i].weapon)
+        ((Player *)entities[i])->hitpoints = 100.0f;
+        ((Player *)entities[i])->alive = true;
+        ((Player *)entities[i])->e.pos = spawnPositions[i];
+        ((Player *)entities[i])->currSpeed = 0.0f;
+        ((Player *)entities[i])->moveDir = (T3DVec3){{0, 0, 0}};
+        ((Player *)entities[i])->rotY = 0.0f;
+        if (((Player *)entities[i])->weapon)
         {
-            players[i].weapon->equipped = false;
-            players[i].weapon->attachedPlayer = NULL;
+            ((Player *)entities[i])->weapon->equipped = false;
+            ((Player *)entities[i])->weapon->attachedPlayer = NULL;
         }
-        players[i].weapon = NULL;
+        ((Player *)entities[i])->weapon = NULL;
     }
 
     for (int i = 0; i < 2; i++)
@@ -148,16 +148,18 @@ void game_reset(T3DVec3 spawnPositions[4])
     pipes[1].wepPos = (T3DVec3){{50.0f, 0.0f, 50.0f}};
 }
 
-void did_i_win(int *winner)
+void did_i_win(int *winner, Entity *entities[], int numPlayers)
 {
     int aliveCount = 0;
     int lastAliveIdx = -1;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < numPlayers; i++)
     {
-        if (players[i].alive)
+        debugf("Checking for winner...\n");
+        if (((Player *)entities[i])->alive)
         {
             aliveCount++;
             lastAliveIdx = i;
+            debugf("Player %d is alive with %f HP\n", i + 1, ((Player *)entities[i])->hitpoints);
         }
     }
     // debugf("Alive players: %d\n", aliveCount);
