@@ -88,7 +88,6 @@ struct Weapon
 
 extern Player players[4];
 extern Weapon pipes[2];
-
 /* Player API */
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);

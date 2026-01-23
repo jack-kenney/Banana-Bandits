@@ -43,7 +43,7 @@ T3DVec3 camTarget;
 T3DVec3 lightDirVec;
 float globalYrot;
 int gameMode, frameIdx;
-int *winner;
+int winner;
 float HP[4], lastTime;
 sprite_t *spriteBanana;
 xm64player_t musicPlayer;
@@ -71,6 +71,7 @@ enum GameMode
 #define STYLE_GREEN 3
 
 Weapon pipes[2];
+Entity *entities[6];
 
 rspq_syncpoint_t syncPoint;
 
@@ -151,8 +152,7 @@ void game_start()
     if (modelBanana || modelWeapon || modelHitbubble || winner || hitbubbleFP || dplHitbubble)
         game_cleanup();
 
-    winner = malloc(sizeof(int));
-    *winner = -1;
+    winner = -1;
     modelWeapon = t3d_model_load("rom:/pipe2.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4_new_low_poly.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
