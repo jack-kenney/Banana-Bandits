@@ -70,9 +70,8 @@ enum GameMode
 #define STYLE_GREY 2
 #define STYLE_GREEN 3
 
-Weapon pipes[2];
 Entity *entities[6];
-int numEntities;
+int numEntities = 6;
 int numPlayers = 4;
 
 rspq_syncpoint_t syncPoint;
@@ -226,8 +225,13 @@ void game_start()
     dplHitbubble = rspq_block_end();
 
     // Intialize weapons
-    weapon_init(&pipes[0], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
-    weapon_init(&pipes[1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
+    for (int i = 0; i < 2; i++)
+    {
+        Weapon *p = malloc(sizeof(Weapon));
+        entities[numPlayers + i] = (Entity *)p;
+    }
+    weapon_init(entities[numPlayers], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
+    weapon_init(entities[numPlayers + 1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
 
     // Timing variables
     lastTime = get_time_s() - (1.0f / 60.0f);
@@ -240,6 +244,7 @@ void game_start()
         //Entity *e = (Entity *)&players[i];
         p->e.init = (EntityInitFunc)player_init;
         p->e.init((Entity *)p, spawnPositions[i], modelBanana);
+        p->e.update = (EntityUpdateFunc)player_update;
         HP[i] = p->hitpoints;
     }
 
@@ -466,25 +471,25 @@ int main(void)
                 gameMode = GAME_MODE_END;
                 break;
             }
-            for (int i = 0; i < numEntities; i++)
+            for (int i = 0; i < numPlayers; i++)
             {
                 // Only do this for alive players
                 //if (!players[i].alive)
                 //    continue;
                 // Actually do the update
-                //player_update(&players[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
-                entities[i]->update(deltaTime);
+                player_update((Player *)entities[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
+                //entities[i]->update(deltaTime);
             }
 
             // Update weapons
-            pipe_movement(&pipes[0], globalYrot, frameIdx, entities, numPlayers);
-            pipe_movement(&pipes[1], globalYrot, frameIdx, entities, numPlayers);
+            pipe_movement((Weapon *)entities[numPlayers], globalYrot, frameIdx, entities, numPlayers);
+            pipe_movement((Weapon *)entities[numPlayers + 1], globalYrot, frameIdx, entities, numPlayers);
             for (int i = 0; i < 2; i++)
             {
                 t3d_mat4fp_from_srt_euler(hitbubbleFP,
                                           (float[3]){0.1f, 0.1f, 0.1f},
                                           (float[3]){0.0f, 0.0f, 0.0f},
-                                          pipes[i].hit->v);
+                                          ((Weapon *)entities[numPlayers + i])->hit->v);
             }
             rspq_block_run(dplHitbubble);
 
@@ -788,7 +793,7 @@ int main(void)
                 weaponColors[1] = graphics_make_color(0xFF, 0x80, 0xFF, 0xFF);
                 for (int w = 0; w < 2; w++)
                 {
-                    debug_draw_aabbf(surface, &viewport, &pipes[w].aabb, weaponColors[w]);
+                    debug_draw_aabbf(surface, &viewport, &((Weapon *)entities[numPlayers + w])->aabb, weaponColors[w]);
                 }
             }
 

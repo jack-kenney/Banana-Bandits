@@ -44,8 +44,9 @@ void weapon_refresh_aabb(Weapon *weapon)
     weapon->aabb.max.v[1] = cy + hy;
 }
 
-void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
+void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
+    Weapon *weapon = (Weapon *)e;
     weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     weapon->wepPos = position;
     weapon->equipped = false;

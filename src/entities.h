@@ -94,7 +94,7 @@ struct Weapon
 };
 
 //extern Player players[4];
-extern Weapon pipes[2];
+//extern Weapon pipes[2];
 /* Player API */
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
@@ -102,8 +102,8 @@ void player_cleanup(Player *player);
 void set_player_state(Player *player, PlayerState newState);
 
 /* Weapon API */
-void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model);
-void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx, Entity * entities[], int numPlayers);
+void weapon_init(Entity *e, T3DVec3 position, T3DModel *model);
+void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx, Entity *entities[], int numPlayers);
 void weapon_cleanup(Weapon *weapon);
 void drop_weapon(Player *player);
 

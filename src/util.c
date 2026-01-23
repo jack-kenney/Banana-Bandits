@@ -137,15 +137,13 @@ void game_reset(T3DVec3 spawnPositions[4], Entity * entities[], int numPlayers)
         ((Player *)entities[i])->weapon = NULL;
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = numPlayers; i < numPlayers + 2; i++)
     {
-        pipes[i].equipped = false;
-        pipes[i].attachedPlayer = NULL;
-        pipes[i].isAttack = false;
-        pipes[i].attackFrame = 0;
+        ((Weapon *)entities[i])->equipped = false;
+        ((Weapon *)entities[i])->attachedPlayer = NULL;
+        ((Weapon *)entities[i])->isAttack = false;
+        ((Weapon *)entities[i])->attackFrame = 0;
     }
-    pipes[0].wepPos = (T3DVec3){{0.0f, 0.0f, 0.0f}};
-    pipes[1].wepPos = (T3DVec3){{50.0f, 0.0f, 50.0f}};
 }
 
 void did_i_win(int *winner, Entity *entities[], int numPlayers)

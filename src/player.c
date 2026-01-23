@@ -10,7 +10,9 @@
 #define PLAYER_AABB_HEIGHT 90.0f
 #define PLAYER_AABB_WIDTH 30.0f
 
-Player players[4];
+extern int numPlayers;
+extern Entity *entities[6];
+//Player players[4];
 
 static inline void player_refresh_aabb(Player *player)
 {
@@ -149,24 +151,24 @@ void drop_weapon(Player *player)
 }
 
 // internal helper: collision detection
-static void collision_detect(Player *player)
+static void collision_detect(Player *player, Entity *entities[], int numPlayers)
 {
-    for (int i = 0; i < 2; i++)
+    for (int i = numPlayers; i < numPlayers + 2; i++)
     {
-        if (player == pipes[i].attachedPlayer)
+        if (player == ((Weapon *)entities[i])->attachedPlayer)
             continue;
         if (player->weapon)
             continue;
-        if (pipes[i].equipped)
+        if (((Weapon *)entities[i])->equipped)
             continue;
 
         // Use AABB overlap for pickup (player world AABB vs weapon pickup AABB).
-        if (!aabbf_overlaps(&player->aabb, &pipes[i].aabb))
+        if (!aabbf_overlaps(&player->aabb, &((Weapon *)entities[i])->aabb))
             continue;
 
-        player->weapon = &pipes[i];
-        pipes[i].equipped = true;
-        pipes[i].attachedPlayer = player;
+        player->weapon = (Weapon *)entities[i];
+        ((Weapon *)entities[i])->equipped = true;
+        ((Weapon *)entities[i])->attachedPlayer = player;
     }
 
     if (player->isHittable > 0)
@@ -177,12 +179,12 @@ static void collision_detect(Player *player)
     for (int i = 0; i < 4; i++)
     {
         // Resolve each pair only once (collision_detect runs per-player).
-        if (&players[i] <= player)
+        if (((Player *)entities[i]) <= player)
             continue;
-        if (!players[i].alive)
+        if (!((Player *)entities[i])->alive)
             continue;
 
-        if (!aabbf_overlaps(&player->aabb, &players[i].aabb))
+        if (!aabbf_overlaps(&player->aabb, &((Player *)entities[i])->aabb))
             continue;
 
         // Minimum-translation-vector (MTV) resolution in XZ.
@@ -191,10 +193,10 @@ static void collision_detect(Player *player)
         const float aMinZ = player->aabb.min.v[2];
         const float aMaxZ = player->aabb.max.v[2];
 
-        const float bMinX = players[i].aabb.min.v[0];
-        const float bMaxX = players[i].aabb.max.v[0];
-        const float bMinZ = players[i].aabb.min.v[2];
-        const float bMaxZ = players[i].aabb.max.v[2];
+        const float bMinX = ((Player *)entities[i])->aabb.min.v[0];
+        const float bMaxX = ((Player *)entities[i])->aabb.max.v[0];
+        const float bMinZ = ((Player *)entities[i])->aabb.min.v[2];
+        const float bMaxZ = ((Player *)entities[i])->aabb.max.v[2];
 
         // Positive penetration depth along each axis (if overlapping).
         float penX = fminf(aMaxX - bMinX, bMaxX - aMinX);
@@ -227,11 +229,11 @@ static void collision_detect(Player *player)
         // Split the correction between both players.
         player->e.pos.v[0] += 0.5f * pushX;
         player->e.pos.v[2] += 0.5f * pushZ;
-        players[i].e.pos.v[0] -= 0.5f * pushX;
-        players[i].e.pos.v[2] -= 0.5f * pushZ;
+        ((Player *)entities[i])->e.pos.v[0] -= 0.5f * pushX;
+        ((Player *)entities[i])->e.pos.v[2] -= 0.5f * pushZ;
 
         player_refresh_aabb(player);
-        player_refresh_aabb(&players[i]);
+        player_refresh_aabb((Player *)entities[i]);
     }
 }
 
@@ -481,7 +483,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
 
     // Run collision after AABB refresh so overlap tests use current frame positions.
-    collision_detect(player);
+    collision_detect(player, entities, numPlayers);
     t3d_mat4fp_from_srt_euler(&player->e.modelMatFP[frameIdx],
                               (float[3]){0.125f, 0.125f, 0.125f},
                               (float[3]){0.0f, -player->rotY, 0},
