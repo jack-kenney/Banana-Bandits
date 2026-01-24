@@ -8,6 +8,7 @@
 #include "collision.h"
 #include <t3d/t3danim.h>
 
+#define FB_COUNT 3
 #define JUMP_HEIGHT 12.0f
 #define ATK_LENGTH 30.0f
 
@@ -28,7 +29,8 @@ typedef void (*EntityCleanupFunc)(Entity *e);
 
 typedef enum {
     E_PLAYER,
-    E_WEAPON
+    E_WEAPON,
+    E_NPC
 } EntityType;
 
 typedef struct Entity {
@@ -88,13 +90,13 @@ typedef struct
 struct Weapon
 {
     Entity e;
-    T3DVec3 wepPos;
+    //T3DVec3 wepPos;
     bool equipped;
     float damage;
     float rotY;
-    rspq_block_t *dplWeapon;
+    //rspq_block_t *dplWeapon;
     Player *attachedPlayer;
-    T3DMat4FP *modelMatFP;
+    //T3DMat4FP *modelMatFP;
     bool isAttack;
     int attackFrame;
     T3DVec3 *hit;
@@ -103,8 +105,10 @@ struct Weapon
     AabbF aabb;
 };
 
-//extern Player players[4];
-//extern Weapon pipes[2];
+
+void entity_init(Entity *e, T3DVec3 position, T3DModel *model, EntityType type);
+void entity_update(Entity *e, const EntityUpdateContext *ctx);
+void entity_cleanup(Entity *e);
 /* Player API */
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);

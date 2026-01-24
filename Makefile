@@ -86,7 +86,9 @@ OBJS = $(BUILD_DIR)/main.o \
        $(BUILD_DIR)/player.o \
        $(BUILD_DIR)/weapon.o \
 	   $(BUILD_DIR)/util.o \
-	   $(BUILD_DIR)/collision.o
+	   $(BUILD_DIR)/collision.o \
+	   $(BUILD_DIR)/entities.o
+
 
 
 BananaBandits.z64: N64_ROM_TITLE="Banana Bandits"

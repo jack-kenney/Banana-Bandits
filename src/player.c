@@ -162,23 +162,23 @@ void drop_weapon(Player *player)
     }
 
     const float dropDistance = 70.0f;
-    dropped->wepPos.v[0] = player->e.pos.v[0] + dropDir.v[0] * dropDistance;
-    dropped->wepPos.v[2] = player->e.pos.v[2] + dropDir.v[2] * dropDistance;
-    dropped->wepPos.v[1] = 0.15f;
+    dropped->e.pos.v[0] = player->e.pos.v[0] + dropDir.v[0] * dropDistance;
+    dropped->e.pos.v[2] = player->e.pos.v[2] + dropDir.v[2] * dropDistance;
+    dropped->e.pos.v[1] = 0.15f;
 
     // Keep within arena bounds.
     const float BOX_SIZE = 240.0f;
-    if (dropped->wepPos.v[0] < -BOX_SIZE)
-        dropped->wepPos.v[0] = -BOX_SIZE;
-    if (dropped->wepPos.v[0] > BOX_SIZE)
-        dropped->wepPos.v[0] = BOX_SIZE;
-    if (dropped->wepPos.v[2] < -BOX_SIZE)
-        dropped->wepPos.v[2] = -BOX_SIZE;
-    if (dropped->wepPos.v[2] > BOX_SIZE)
-        dropped->wepPos.v[2] = BOX_SIZE;
+    if (dropped->e.pos.v[0] < -BOX_SIZE)
+        dropped->e.pos.v[0] = -BOX_SIZE;
+    if (dropped->e.pos.v[0] > BOX_SIZE)
+        dropped->e.pos.v[0] = BOX_SIZE;
+    if (dropped->e.pos.v[2] < -BOX_SIZE)
+        dropped->e.pos.v[2] = -BOX_SIZE;
+    if (dropped->e.pos.v[2] > BOX_SIZE)
+        dropped->e.pos.v[2] = BOX_SIZE;
 
     if (dropped->hit)
-        *dropped->hit = dropped->wepPos;
+        *dropped->hit = dropped->e.pos;
     weapon_refresh_aabb(dropped);
 
     player->weapon = NULL;

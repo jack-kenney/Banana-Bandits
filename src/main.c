@@ -18,7 +18,7 @@
 #include "entities.h"
 #include "util.h"
 #include "collision.h"
-#define FB_COUNT 3
+
 
 // Reserve a safe mixer channel for SFX. Stereo waveforms need ch+1, so avoid
 // using the very last channel.
@@ -70,8 +70,9 @@ enum GameMode
 #define STYLE_GREY 2
 #define STYLE_GREEN 3
 
-Entity *entities[6];
-int numEntities = 6;
+#define MAX_ENTITIES 16
+Entity *entities[MAX_ENTITIES];
+int numEntities = 0;
 int numPlayers = 4;
 
 rspq_syncpoint_t syncPoint;
@@ -205,6 +206,8 @@ void game_start()
         game_cleanup();
 
     winner = -1;
+    for (int i = 0; i < MAX_ENTITIES; i++)
+        entities[i] = NULL;
     modelWeapon = t3d_model_load("rom:/pipe2.t3dm");
     modelBanana = t3d_model_load("rom:/banana_arm1_b4_new_low_poly.t3dm");
     modelHitbubble = t3d_model_load("rom:/hitbubble.t3dm");
@@ -243,6 +246,8 @@ void game_start()
     }
     weapon_init(entities[numPlayers], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
     weapon_init(entities[numPlayers + 1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
+
+    numEntities = numPlayers + 2;
 
     // Timing variables
     lastTime = get_time_s() - (1.0f / 60.0f);
@@ -508,8 +513,8 @@ int main(void)
             // Draw weapons
             for (int i = 0; i < 2; i++)
             {
-                t3d_matrix_push(&((Weapon *)entities[numPlayers + i])->modelMatFP[frameIdx]);
-                rspq_block_run(((Weapon *)entities[numPlayers + i])->dplWeapon);
+                t3d_matrix_push(&((Weapon *)entities[numPlayers + i])->e.modelMatFP[frameIdx]);
+                rspq_block_run(((Weapon *)entities[numPlayers + i])->e.dplEntity);
                 t3d_matrix_pop(1);
             }
 
