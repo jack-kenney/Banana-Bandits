@@ -14,8 +14,17 @@
 typedef struct Entity Entity;
 
 typedef void (*EntityInitFunc)(Entity *e, T3DVec3 position, T3DModel *model);
-typedef void (*EntityUpdateFunc)(float deltaTime);  
-typedef void (*EntityCleanupFunc)();
+typedef struct EntityUpdateContext {
+    float deltaTime;
+    int frameIdx;
+    T3DVec3 *camPos;
+    float globalYrot;
+    Entity **entities;
+    int numPlayers;
+} EntityUpdateContext;
+
+typedef void (*EntityUpdateFunc)(Entity *e, const EntityUpdateContext *ctx);  
+typedef void (*EntityCleanupFunc)(Entity *e);
 
 typedef enum {
     E_PLAYER,
@@ -72,6 +81,7 @@ typedef struct
     AabbF aabb;
     T3DAnim animIdle, animPunch, animPunch2, animDodge;
     PlayerState state, prevState;
+    int playerIndex;
     EntityType type;
 } Player;
 
@@ -99,12 +109,17 @@ struct Weapon
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
 void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
 void player_cleanup(Player *player);
+void player_entity_cleanup(Entity *e);
+void player_entity_update(Entity *e, const EntityUpdateContext *ctx);
 void set_player_state(Player *player, PlayerState newState);
 
 /* Weapon API */
 void weapon_init(Entity *e, T3DVec3 position, T3DModel *model);
 void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx, Entity *entities[], int numPlayers);
 void weapon_cleanup(Weapon *weapon);
+void weapon_entity_cleanup(Entity *e);
+void weapon_entity_update(Entity *e, const EntityUpdateContext *ctx);
+void weapon_draw_hitbubble(Weapon *weapon, T3DMat4FP *hitbubbleFP, rspq_block_t *dplHitbubble);
 void drop_weapon(Player *player);
 
 // Updates weapon->aabb based on current state (pickup vs attack hitbox)

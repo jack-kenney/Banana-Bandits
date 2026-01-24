@@ -148,34 +148,16 @@ void game_cleanup()
 */
 void game_cleanup() 
 {
-     for (int i = 0; i < numEntities; i++)
+    for (int i = 0; i < numEntities; i++)
     {
-        switch (entities[i]->type) 
-        {
-            case E_PLAYER:
-            debugf("Cleaning up player entity %d\n", i);
-                if (entities[i]->modelMatFP)
-                    player_cleanup((Player *)entities[i]);
-                t3d_anim_destroy(&((Player *)entities[i])->animIdle);
-                t3d_anim_destroy(&((Player *)entities[i])->animPunch);
-                ((Player *)entities[i])->e.modelMatFP = NULL;
-                ((Player *)entities[i])->skel = NULL;
-                ((Player *)entities[i])->skelBlend = NULL;
-                ((Player *)entities[i])->weapon = NULL;
-                ((Player *)entities[i])->e.dplEntity = NULL;
-                free(entities[i]);
-                entities[i] = NULL;
-                break;
-            case E_WEAPON:
-            debugf("Cleaning up weapon entity %d\n", i);
-                if (((Weapon *)entities[i])->modelMatFP || ((Weapon *)entities[i])->hit)
-                    weapon_cleanup((Weapon *)entities[i]);
-                free(entities[i]);
-                entities[i] = NULL;
-                break;
-            default:
-                break;
-        }
+        if (!entities[i])
+            continue;
+
+        if (entities[i]->cleanup)
+            entities[i]->cleanup(entities[i]);
+
+        free(entities[i]);
+        entities[i] = NULL;
     }
     // rspq_block_free(dplMap);
     if (dplHitbubble)
@@ -213,6 +195,10 @@ void game_cleanup()
 // Function to set up the players & game, called when a new game is started
 void game_start()
 {
+    heap_stats_t stats;
+    sys_get_heap_stats(&stats);
+    debugf("Heap stats before game start: total=%u used=%u\n",
+              stats.total, stats.used);
     // If we somehow start twice without cleaning up (eg: starting from menu
     // after already initializing at boot), clean up first.
     if (modelBanana || modelWeapon || modelHitbubble || winner || hitbubbleFP || dplHitbubble)
@@ -240,7 +226,9 @@ void game_start()
         //Entity *e = (Entity *)&players[i];
         p->e.init = (EntityInitFunc)player_init;
         p->e.init((Entity *)p, spawnPositions[i], modelBanana);
-        p->e.update = (EntityUpdateFunc)player_update;
+        p->e.update = player_entity_update;
+        p->e.cleanup = player_entity_cleanup;
+        p->playerIndex = i;
         HP[i] = p->hitpoints;
     }
 
@@ -250,6 +238,8 @@ void game_start()
         debugf("Initializing weapon %d\n", i + 1);
         Weapon *p = malloc(sizeof(Weapon));
         entities[numPlayers + i] = (Entity *)p;
+        p->e.cleanup = weapon_entity_cleanup;
+        p->e.update = weapon_entity_update;
     }
     weapon_init(entities[numPlayers], (T3DVec3){{0.0f, 0.0f, 0.0f}}, modelWeapon);
     weapon_init(entities[numPlayers + 1], (T3DVec3){{50.0f, 0.0f, 50.0f}}, modelWeapon);
@@ -482,27 +472,24 @@ int main(void)
                 gameMode = GAME_MODE_END;
                 break;
             }
-            for (int i = 0; i < numPlayers; i++)
-            {
-                // Only do this for alive players
-                //if (!players[i].alive)
-                //    continue;
-                // Actually do the update
-                player_update((Player *)entities[i], JOYPAD_PORT_1 + i, &camPos, frameIdx, deltaTime);
-                //entities[i]->update(deltaTime);
-            }
+            EntityUpdateContext updateCtx = {
+                .deltaTime = deltaTime,
+                .frameIdx = frameIdx,
+                .camPos = &camPos,
+                .globalYrot = globalYrot,
+                .entities = entities,
+                .numPlayers = numPlayers,
+            };
 
-            // Update weapons
-            pipe_movement((Weapon *)entities[numPlayers], globalYrot, frameIdx, entities, numPlayers);
-            pipe_movement((Weapon *)entities[numPlayers + 1], globalYrot, frameIdx, entities, numPlayers);
+            for (int i = 0; i < numEntities; i++)
+            {
+                if (entities[i] && entities[i]->update)
+                    entities[i]->update(entities[i], &updateCtx);
+            }
             for (int i = 0; i < 2; i++)
             {
-                t3d_mat4fp_from_srt_euler(hitbubbleFP,
-                                          (float[3]){0.1f, 0.1f, 0.1f},
-                                          (float[3]){0.0f, 0.0f, 0.0f},
-                                          ((Weapon *)entities[numPlayers + i])->hit->v);
+                weapon_draw_hitbubble((Weapon *)entities[numPlayers + i], hitbubbleFP, dplHitbubble);
             }
-            rspq_block_run(dplHitbubble);
 
             // Draw players
             for (int i = 0; i < 4; i++)

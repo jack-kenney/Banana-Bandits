@@ -89,6 +89,32 @@ void weapon_cleanup(Weapon *weapon)
     weapon->attachedPlayer = NULL;
     weapon->equipped = false;
 }
+
+void weapon_entity_cleanup(Entity *e)
+{
+    if (!e)
+        return;
+    weapon_cleanup((Weapon *)e);
+}
+
+void weapon_entity_update(Entity *e, const EntityUpdateContext *ctx)
+{
+    if (!e || !ctx)
+        return;
+    pipe_movement((Weapon *)e, ctx->globalYrot, ctx->frameIdx, ctx->entities, ctx->numPlayers);
+}
+
+void weapon_draw_hitbubble(Weapon *weapon, T3DMat4FP *hitbubbleFP, rspq_block_t *dplHitbubble)
+{
+    if (!weapon || !hitbubbleFP || !dplHitbubble || !weapon->hit)
+        return;
+
+    t3d_mat4fp_from_srt_euler(hitbubbleFP,
+                              (float[3]){0.1f, 0.1f, 0.1f},
+                              (float[3]){0.0f, 0.0f, 0.0f},
+                              weapon->hit->v);
+    rspq_block_run(dplHitbubble);
+}
 void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx, Entity * entities[], int numPlayers)
 {
     pipe->bobFrame += 1;

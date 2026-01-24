@@ -119,6 +119,22 @@ void player_cleanup(Player *player)
     player->skelBlend = NULL;
 }
 
+void player_entity_cleanup(Entity *e)
+{
+    if (!e)
+        return;
+    player_cleanup((Player *)e);
+}
+
+void player_entity_update(Entity *e, const EntityUpdateContext *ctx)
+{
+    if (!e || !ctx)
+        return;
+    Player *player = (Player *)e;
+    joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + player->playerIndex);
+    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime);
+}
+
 void drop_weapon(Player *player)
 {
     Weapon *dropped = player->weapon;
