@@ -47,11 +47,12 @@ void weapon_refresh_aabb(Weapon *weapon)
 void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
     Weapon *weapon = (Weapon *)e;
+    weapon->e.type = E_WEAPON;
     weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     weapon->wepPos = position;
     weapon->equipped = false;
     weapon->attachedPlayer = NULL;
-    weapon->damage = 10.0f;
+    weapon->damage = 100.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
     weapon->bobFrame = 0;

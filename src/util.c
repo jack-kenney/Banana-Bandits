@@ -152,12 +152,10 @@ void did_i_win(int *winner, Entity *entities[], int numPlayers)
     int lastAliveIdx = -1;
     for (int i = 0; i < numPlayers; i++)
     {
-        debugf("Checking for winner...\n");
         if (((Player *)entities[i])->alive)
         {
             aliveCount++;
             lastAliveIdx = i;
-            debugf("Player %d is alive with %f HP\n", i + 1, ((Player *)entities[i])->hitpoints);
         }
     }
     // debugf("Alive players: %d\n", aliveCount);

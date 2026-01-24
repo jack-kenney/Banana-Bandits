@@ -93,12 +93,30 @@ void set_player_state(Player *player, PlayerState newState)
 // Cleanup player resources
 void player_cleanup(Player *player)
 {
-    rspq_block_free(player->e.dplEntity);
+    if (player->e.dplEntity)
+        rspq_block_free(player->e.dplEntity);
 
-    t3d_skeleton_destroy(player->skel);
-    t3d_skeleton_destroy(player->skelBlend);
+    t3d_anim_destroy(&player->animIdle);
+    t3d_anim_destroy(&player->animPunch);
+    t3d_anim_destroy(&player->animDodge);
+    t3d_anim_destroy(&player->animPunch2);
 
-    free_uncached(player->e.modelMatFP);
+    if (player->skel)
+        t3d_skeleton_destroy(player->skel);
+    if (player->skelBlend)
+        t3d_skeleton_destroy(player->skelBlend);
+
+    if (player->e.modelMatFP)
+        free_uncached(player->e.modelMatFP);
+    if (player->skel)
+        free_uncached(player->skel);
+    if (player->skelBlend)
+        free_uncached(player->skelBlend);
+
+    player->e.dplEntity = NULL;
+    player->e.modelMatFP = NULL;
+    player->skel = NULL;
+    player->skelBlend = NULL;
 }
 
 void drop_weapon(Player *player)

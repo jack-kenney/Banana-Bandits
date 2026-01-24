@@ -153,17 +153,25 @@ void game_cleanup()
         switch (entities[i]->type) 
         {
             case E_PLAYER:
+            debugf("Cleaning up player entity %d\n", i);
                 if (entities[i]->modelMatFP)
                     player_cleanup((Player *)entities[i]);
+                t3d_anim_destroy(&((Player *)entities[i])->animIdle);
+                t3d_anim_destroy(&((Player *)entities[i])->animPunch);
                 ((Player *)entities[i])->e.modelMatFP = NULL;
                 ((Player *)entities[i])->skel = NULL;
                 ((Player *)entities[i])->skelBlend = NULL;
                 ((Player *)entities[i])->weapon = NULL;
                 ((Player *)entities[i])->e.dplEntity = NULL;
+                free(entities[i]);
+                entities[i] = NULL;
                 break;
             case E_WEAPON:
+            debugf("Cleaning up weapon entity %d\n", i);
                 if (((Weapon *)entities[i])->modelMatFP || ((Weapon *)entities[i])->hit)
                     weapon_cleanup((Weapon *)entities[i]);
+                free(entities[i]);
+                entities[i] = NULL;
                 break;
             default:
                 break;
@@ -195,12 +203,12 @@ void game_cleanup()
     if (spriteBanana)
         sprite_free(spriteBanana);
     spriteBanana = NULL;
-
+/*
     for (int i = 0; i < 4; i++)
     {
-        t3d_anim_destroy(&((Player *)entities[i])->animIdle);
-        t3d_anim_destroy(&((Player *)entities[i])->animPunch);
+
     }
+*/
 }
 // Function to set up the players & game, called when a new game is started
 void game_start()
@@ -224,9 +232,22 @@ void game_start()
     t3d_matrix_pop(1);
     dplHitbubble = rspq_block_end();
 
+    for (int i = 0; i < numPlayers; i++)
+    {
+        debugf("Initializing player %d\n", i + 1);
+        Player *p = malloc(sizeof(Player));
+        entities[i] = (Entity *)p;
+        //Entity *e = (Entity *)&players[i];
+        p->e.init = (EntityInitFunc)player_init;
+        p->e.init((Entity *)p, spawnPositions[i], modelBanana);
+        p->e.update = (EntityUpdateFunc)player_update;
+        HP[i] = p->hitpoints;
+    }
+
     // Intialize weapons
     for (int i = 0; i < 2; i++)
     {
+        debugf("Initializing weapon %d\n", i + 1);
         Weapon *p = malloc(sizeof(Weapon));
         entities[numPlayers + i] = (Entity *)p;
     }
@@ -237,16 +258,6 @@ void game_start()
     lastTime = get_time_s() - (1.0f / 60.0f);
     frameIdx = 0;
     // Per-player initialization tasks happen in this loop
-    for (int i = 0; i < numPlayers; i++)
-    {
-        Player *p = malloc(sizeof(Player));
-        entities[i] = (Entity *)p;
-        //Entity *e = (Entity *)&players[i];
-        p->e.init = (EntityInitFunc)player_init;
-        p->e.init((Entity *)p, spawnPositions[i], modelBanana);
-        p->e.update = (EntityUpdateFunc)player_update;
-        HP[i] = p->hitpoints;
-    }
 
     // Load p1 HP bar sprite
     spriteBanana = sprite_load("rom:/hpbar.sprite");
@@ -498,7 +509,6 @@ int main(void)
             {
                 if (((Player *)entities[i])->alive && (((Player *)entities[i])->isHittable % 2 == 0))
                 {
-                    debugf("Drawing player %d\n", i + 1);
                     // Buffered skeletons require selecting the active matrices before drawing.
                     // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
                     t3d_skeleton_use(((Player *)entities[i])->skel);
@@ -511,7 +521,6 @@ int main(void)
             // Draw weapons
             for (int i = 0; i < 2; i++)
             {
-                debugf("Drawing weapon %d\n", i + 1);
                 t3d_matrix_push(&((Weapon *)entities[numPlayers + i])->modelMatFP[frameIdx]);
                 rspq_block_run(((Weapon *)entities[numPlayers + i])->dplWeapon);
                 t3d_matrix_pop(1);
@@ -673,6 +682,10 @@ int main(void)
 
             if (joypad1_btn.a)
             {
+                heap_stats_t stats;
+                sys_get_heap_stats(&stats);
+                debugf("Heap stats before cleanup: total=%u used=%u\n",
+                       stats.total, stats.used);
                 game_cleanup();
                 gameMode = GAME_MODE_MENU;
                 menuSelection = 0;
