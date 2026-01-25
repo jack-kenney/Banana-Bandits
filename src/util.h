@@ -30,4 +30,6 @@ float get_time_s(void);
 void debug_draw_aabbf(surface_t *surface, T3DViewport *viewport, const AabbF *aabb, uint32_t color);
 void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DObject *obj, const T3DMat4 *modelMat, uint32_t color);
 
+void game_reset(T3DVec3 spawnPositions[4], Entity *entities[], int numPlayers);
+
 #endif

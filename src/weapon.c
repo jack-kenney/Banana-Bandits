@@ -1,4 +1,5 @@
-#include "entities.h"
+#include "weapon.h"
+#include "player.h"
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
 #include <stdlib.h>
@@ -7,7 +8,6 @@
 #include <t3d/t3dskeleton.h>
 #include "collision.h"
 
-extern Weapon pipes[];
 extern wav64_t dominating, smack1, smack2, smack3, smack4;
 
 #define FB_COUNT 3

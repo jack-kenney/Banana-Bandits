@@ -44,89 +44,8 @@ typedef struct Entity {
     EntityType type; 
 } Entity;
 
-typedef struct
-{
-    enum
-    {
-        STATE_IDLE,
-        STATE_WALK,
-        STATE_JUMP,
-        STATE_ATTACK,
-        STATE_ATTACK2,
-        STATE_DEAD,
-        STATE_HITLAG,
-        STATE_DODGE
-    } s;
-    uint8_t frame;
-} PlayerState;
-
-typedef struct Weapon Weapon;
-
-typedef struct
-{
-    Entity e;
-    float hitpoints;
-    int isHittable;
-    T3DVec3 moveDir;
-    bool alive;
-    //T3DVec3 playerPos;
-    float currSpeed;
-    float rotY;
-    int jumpFrame;
-    bool asc;
-    //rspq_block_t *dplPlayer;
-    //T3DMat4FP *modelMatFP;
-    T3DSkeleton *skel;
-    T3DSkeleton *skelBlend;
-    int handBoneIdx;
-    Weapon *weapon;
-    AabbF aabb;
-    T3DAnim animIdle, animPunch, animPunch2, animDodge;
-    PlayerState state, prevState;
-    int playerIndex;
-    EntityType type;
-} Player;
-
-struct Weapon
-{
-    Entity e;
-    //T3DVec3 wepPos;
-    bool equipped;
-    float damage;
-    float rotY;
-    //rspq_block_t *dplWeapon;
-    Player *attachedPlayer;
-    //T3DMat4FP *modelMatFP;
-    bool isAttack;
-    int attackFrame;
-    T3DVec3 *hit;
-    int bobFrame;
-    int boneIndexWeapon;
-    AabbF aabb;
-};
-
-
 void entity_init(Entity *e, T3DVec3 position, T3DModel *model, EntityType type);
 void entity_update(Entity *e, const EntityUpdateContext *ctx);
 void entity_cleanup(Entity *e);
-/* Player API */
-void player_init(Entity *e, T3DVec3 position, T3DModel *model);
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime);
-void player_cleanup(Player *player);
-void player_entity_cleanup(Entity *e);
-void player_entity_update(Entity *e, const EntityUpdateContext *ctx);
-void set_player_state(Player *player, PlayerState newState);
-
-/* Weapon API */
-void weapon_init(Entity *e, T3DVec3 position, T3DModel *model);
-void pipe_movement(Weapon *weapon, float globalYrot, int frameIdx, Entity *entities[], int numPlayers);
-void weapon_cleanup(Weapon *weapon);
-void weapon_entity_cleanup(Entity *e);
-void weapon_entity_update(Entity *e, const EntityUpdateContext *ctx);
-void weapon_draw_hitbubble(Weapon *weapon, T3DMat4FP *hitbubbleFP, rspq_block_t *dplHitbubble);
-void drop_weapon(Player *player);
-
-// Updates weapon->aabb based on current state (pickup vs attack hitbox)
-void weapon_refresh_aabb(Weapon *weapon);
 
 #endif // ENTITIES_H

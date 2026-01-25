@@ -1,7 +1,7 @@
 /* 
     TODOS
-- remove audio_pump()
-- make more functions for clarity (so that main() is actually readable)
+- Organize declarations
+-
 
 */
 
@@ -18,6 +18,8 @@
 #include "entities.h"
 #include "util.h"
 #include "collision.h"
+#include "player.h"
+#include "weapon.h"
 
 
 // Reserve a safe mixer channel for SFX. Stereo waveforms need ch+1, so avoid
@@ -95,58 +97,6 @@ static uint64_t perf_prev_mixer_ticks = 0;
 static rspq_profile_data_t perf_prev_rspq = {0};
 
 // Function to cleanup game resources
-/*
-void game_cleanup()
-{
-    for (int i = 0; i < 4; i++)
-    {
-        if (players[i].e.modelMatFP)
-            player_cleanup(&players[i]);
-        players[i].e.modelMatFP = NULL;
-        players[i].skel = NULL;
-        players[i].skelBlend = NULL;
-        players[i].weapon = NULL;
-        players[i].e.dplEntity = NULL;
-    }
-    if (pipes[0].modelMatFP || pipes[0].hit)
-        weapon_cleanup(&pipes[0]);
-    if (pipes[1].modelMatFP || pipes[1].hit)
-        weapon_cleanup(&pipes[1]);
-
-    // rspq_block_free(dplMap);
-    if (dplHitbubble)
-        rspq_block_free(dplHitbubble);
-    dplHitbubble = NULL;
-
-    if (modelWeapon)
-        t3d_model_free(modelWeapon);
-    if (modelBanana)
-        t3d_model_free(modelBanana);
-    if (modelHitbubble)
-        t3d_model_free(modelHitbubble);
-
-    modelWeapon = NULL;
-    modelBanana = NULL;
-    modelHitbubble = NULL;
-
-    if (hitbubbleFP)
-        free_uncached(hitbubbleFP);
-    //if (winner)
-    //    free(winner);
-    hitbubbleFP = NULL;
-    //winner = NULL;
-
-    if (spriteBanana)
-        sprite_free(spriteBanana);
-    spriteBanana = NULL;
-
-    for (int i = 0; i < 4; i++)
-    {
-        t3d_anim_destroy(&players[i].animIdle);
-        t3d_anim_destroy(&players[i].animPunch);
-    }
-}
-*/
 void game_cleanup() 
 {
     for (int i = 0; i < numEntities; i++)

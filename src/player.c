@@ -1,4 +1,5 @@
-#include "entities.h"
+#include "player.h"
+#include "weapon.h"
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 #define PLAYER_AABB_WIDTH 30.0f
 
 extern int numPlayers;
-extern Entity *entities[6];
+extern Entity *entities[];
 //Player players[4];
 
 static inline void player_refresh_aabb(Player *player)
