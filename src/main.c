@@ -110,7 +110,6 @@ void game_cleanup()
         free(entities[i]);
         entities[i] = NULL;
     }
-    // rspq_block_free(dplMap);
     if (dplHitbubble)
         rspq_block_free(dplHitbubble);
     dplHitbubble = NULL;
@@ -128,20 +127,11 @@ void game_cleanup()
 
     if (hitbubbleFP)
         free_uncached(hitbubbleFP);
-    //if (winner)
-    //    free(winner);
     hitbubbleFP = NULL;
-    //winner = NULL;
 
     if (spriteBanana)
         sprite_free(spriteBanana);
     spriteBanana = NULL;
-/*
-    for (int i = 0; i < 4; i++)
-    {
-
-    }
-*/
 }
 // Function to set up the players & game, called when a new game is started
 void game_start()
@@ -176,7 +166,6 @@ void game_start()
         debugf("Initializing player %d\n", i + 1);
         Player *p = malloc(sizeof(Player));
         entities[i] = (Entity *)p;
-        //Entity *e = (Entity *)&players[i];
         p->e.init = (EntityInitFunc)player_init;
         p->e.init((Entity *)p, spawnPositions[i], modelBanana);
         p->e.update = player_entity_update;
@@ -260,8 +249,6 @@ void game_init()
     rdpq_text_register_font(FONT_BUILTIN_DEBUG_MONO, fnt);
 
     rspq_block_begin();
-    // t3d_model_draw(modelShadow);
-    // t3d_model_draw(modelCrystal);
     t3d_model_draw(modelMap);
     dplMap = rspq_block_end();
 }
