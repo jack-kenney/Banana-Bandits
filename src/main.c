@@ -1,10 +1,3 @@
-/* 
-    TODOS
-- Organize declarations
--
-
-*/
-
 #include <libdragon.h>
 #include <t3d/t3d.h>
 #include <rspq_profile.h>

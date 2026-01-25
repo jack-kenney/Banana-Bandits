@@ -210,6 +210,8 @@ static void battle_shutdown(BattleState *state)
     if (state->modelMap)
         t3d_model_free(state->modelMap);
     state->modelMap = NULL;
+
+    t3d_viewport_destroy(&state->viewport);
 }
 
 void battle_mode_loop(void)
