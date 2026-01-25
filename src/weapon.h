@@ -17,7 +17,6 @@ typedef struct Weapon
     T3DVec3 *hit;
     int bobFrame;
     int boneIndexWeapon;
-    AabbF aabb;
 } Weapon;
 
 /* Weapon API */
@@ -27,7 +26,7 @@ void weapon_cleanup(Weapon *weapon);
 void weapon_entity_cleanup(Entity *e);
 void weapon_entity_update(Entity *e, const EntityUpdateContext *ctx);
 void weapon_draw_hitbubble(Weapon *weapon, T3DMat4FP *hitbubbleFP, rspq_block_t *dplHitbubble);
-// Updates weapon->aabb based on current state (pickup vs attack hitbox)
+// Updates weapon->e.aabb based on current state (pickup vs attack hitbox)
 void weapon_refresh_aabb(Weapon *weapon);
 
 #endif // WEAPON_H

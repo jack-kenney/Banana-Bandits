@@ -36,7 +36,6 @@ typedef struct Player
     T3DSkeleton *skelBlend;
     int handBoneIdx;
     Weapon *weapon;
-    AabbF aabb;
     T3DAnim animIdle, animPunch, animPunch2, animDodge;
     PlayerState state, prevState;
     int playerIndex;

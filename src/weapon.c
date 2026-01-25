@@ -34,16 +34,16 @@ void weapon_refresh_aabb(Weapon *weapon)
 
     const float hx = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_XZ : WEAPON_PICKUP_AABB_HALF_EXTENT_XZ;
     const float hy = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_Y : WEAPON_PICKUP_AABB_HALF_EXTENT_Y;
-
-    weapon->aabb.min.v[0] = center->v[0] - hx;
-    weapon->aabb.max.v[0] = center->v[0] + hx;
-    weapon->aabb.min.v[2] = center->v[2] - hx;
-    weapon->aabb.max.v[2] = center->v[2] + hx;
     const float cy = center->v[1] + WEAPON_AABB_Y_OFFSET;
-    weapon->aabb.min.v[1] = cy - hy;
-    weapon->aabb.max.v[1] = cy + hy;
-}
 
+    weapon->e.aabb.min.v[0] = center->v[0] - hx;
+    weapon->e.aabb.max.v[0] = center->v[0] + hx;
+    weapon->e.aabb.min.v[2] = center->v[2] - hx;
+    weapon->e.aabb.max.v[2] = center->v[2] + hx;
+
+    weapon->e.aabb.min.v[1] = cy - hy;
+    weapon->e.aabb.max.v[1] = cy + hy;
+}
 void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
     Weapon *weapon = (Weapon *)e;
@@ -174,7 +174,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx, Entity * entiti
                 if (target->isHittable != 0)
                     continue;
 
-                if (!aabbf_overlaps(&pipe->aabb, &target->aabb))
+                if (!aabbf_overlaps(&pipe->e.aabb, &target->e.aabb))
                     continue;
 
                 set_player_state(target, (PlayerState){.s = STATE_HITLAG, .frame = 0});

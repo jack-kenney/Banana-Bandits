@@ -605,7 +605,7 @@ void battle_mode_loop(void)
                         continue;
 
                     // Use the gameplay AABB tied to the player (world-space).
-                    AabbF query = ((Player *)state.entities[p])->aabb;
+                    AabbF query = ((Player *)state.entities[p])->e.aabb;
                     // Draw the query AABB.
                     debug_draw_aabbf(surface, &state.viewport, &query, queryColor);
 
@@ -647,7 +647,7 @@ void battle_mode_loop(void)
                 weaponColors[1] = graphics_make_color(0xFF, 0x80, 0xFF, 0xFF);
                 for (int w = 0; w < 2; w++)
                 {
-                    debug_draw_aabbf(surface, &state.viewport, &((Weapon *)state.entities[state.numPlayers + w])->aabb, weaponColors[w]);
+                    debug_draw_aabbf(surface, &state.viewport, &((Weapon *)state.entities[state.numPlayers + w])->e.aabb, weaponColors[w]);
                 }
             }
 
@@ -661,7 +661,7 @@ void battle_mode_loop(void)
             {
                 if (!((Player *)state.entities[i])->alive)
                     continue;
-                debug_draw_aabbf(surface, &state.viewport, &((Player *)state.entities[i])->aabb, colors[i]);
+                debug_draw_aabbf(surface, &state.viewport, &((Player *)state.entities[i])->e.aabb, colors[i]);
             }
 
             display_show(surface);

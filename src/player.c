@@ -15,12 +15,12 @@
 
 static inline void player_refresh_aabb(Player *player)
 {
-    player->aabb.min.v[0] = player->e.pos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.max.v[0] = player->e.pos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.min.v[2] = player->e.pos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.max.v[2] = player->e.pos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
-    player->aabb.min.v[1] = player->e.pos.v[1];
-    player->aabb.max.v[1] = player->e.pos.v[1] + PLAYER_AABB_HEIGHT;
+    player->e.aabb.min.v[0] = player->e.pos.v[0] - PLAYER_AABB_WIDTH / 2.0f;
+    player->e.aabb.max.v[0] = player->e.pos.v[0] + PLAYER_AABB_WIDTH / 2.0f;
+    player->e.aabb.min.v[2] = player->e.pos.v[2] - PLAYER_AABB_WIDTH / 2.0f;
+    player->e.aabb.max.v[2] = player->e.pos.v[2] + PLAYER_AABB_WIDTH / 2.0f;
+    player->e.aabb.min.v[1] = player->e.pos.v[1];
+    player->e.aabb.max.v[1] = player->e.pos.v[1] + PLAYER_AABB_HEIGHT;
 }
 
 void player_init(Entity *e, T3DVec3 position, T3DModel *model)
@@ -196,7 +196,7 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers)
             continue;
 
         // Use AABB overlap for pickup (player world AABB vs weapon pickup AABB).
-        if (!aabbf_overlaps(&player->aabb, &((Weapon *)entities[i])->aabb))
+        if (!aabbf_overlaps(&player->e.aabb, &((Weapon *)entities[i])->e.aabb))
             continue;
 
         player->weapon = (Weapon *)entities[i];
@@ -217,19 +217,19 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers)
         if (!((Player *)entities[i])->alive)
             continue;
 
-        if (!aabbf_overlaps(&player->aabb, &((Player *)entities[i])->aabb))
+        if (!aabbf_overlaps(&player->e.aabb, &((Player *)entities[i])->e.aabb))
             continue;
 
         // Minimum-translation-vector (MTV) resolution in XZ.
-        const float aMinX = player->aabb.min.v[0];
-        const float aMaxX = player->aabb.max.v[0];
-        const float aMinZ = player->aabb.min.v[2];
-        const float aMaxZ = player->aabb.max.v[2];
+        const float aMinX = player->e.aabb.min.v[0];
+        const float aMaxX = player->e.aabb.max.v[0];
+        const float aMinZ = player->e.aabb.min.v[2];
+        const float aMaxZ = player->e.aabb.max.v[2];
 
-        const float bMinX = ((Player *)entities[i])->aabb.min.v[0];
-        const float bMaxX = ((Player *)entities[i])->aabb.max.v[0];
-        const float bMinZ = ((Player *)entities[i])->aabb.min.v[2];
-        const float bMaxZ = ((Player *)entities[i])->aabb.max.v[2];
+        const float bMinX = ((Player *)entities[i])->e.aabb.min.v[0];
+        const float bMaxX = ((Player *)entities[i])->e.aabb.max.v[0];
+        const float bMinZ = ((Player *)entities[i])->e.aabb.min.v[2];
+        const float bMaxZ = ((Player *)entities[i])->e.aabb.max.v[2];
 
         // Positive penetration depth along each axis (if overlapping).
         float penX = fminf(aMaxX - bMinX, bMaxX - aMinX);
