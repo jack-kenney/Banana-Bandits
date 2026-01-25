@@ -27,6 +27,7 @@ void player_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
     Player *player = (Player *)e;
     player->e.type = E_PLAYER;
+    player->e.visible = true;
     player->e.modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     player->moveDir = (T3DVec3){{0, 0, 0}};
     player->e.pos = position;
@@ -72,10 +73,19 @@ void player_init(Entity *e, T3DVec3 position, T3DModel *model)
     t3d_anim_attach(&player->animPunch2, player->skel);
 
     // model = t3d_model_load("rom:/banana.t3dm");
-    rspq_block_begin();
-    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-    t3d_model_draw_skinned(model, player->skel);
-    player->e.dplEntity = rspq_block_end();
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        t3d_mat4fp_from_srt_euler(&player->e.modelMatFP[i],
+                                  (float[3]){0.125f, 0.125f, 0.125f},
+                                  (float[3]){0.0f, -player->rotY, 0},
+                                  player->e.pos.v);
+        rspq_block_begin();
+        t3d_matrix_push(&player->e.modelMatFP[i]);
+        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+        t3d_model_draw_skinned(model, player->skel);
+        t3d_matrix_pop(1);
+        player->e.dplEntity[i] = rspq_block_end();
+    }
 }
 
 void set_player_state(Player *player, PlayerState newState)
@@ -92,8 +102,12 @@ void set_player_state(Player *player, PlayerState newState)
 // Cleanup player resources
 void player_cleanup(Player *player)
 {
-    if (player->e.dplEntity)
-        rspq_block_free(player->e.dplEntity);
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        if (player->e.dplEntity[i])
+            rspq_block_free(player->e.dplEntity[i]);
+        player->e.dplEntity[i] = NULL;
+    }
 
     t3d_anim_destroy(&player->animIdle);
     t3d_anim_destroy(&player->animPunch);
@@ -112,7 +126,6 @@ void player_cleanup(Player *player)
     if (player->skelBlend)
         free_uncached(player->skelBlend);
 
-    player->e.dplEntity = NULL;
     player->e.modelMatFP = NULL;
     player->skel = NULL;
     player->skelBlend = NULL;
@@ -132,6 +145,7 @@ void player_entity_update(Entity *e, const EntityUpdateContext *ctx)
     Player *player = (Player *)e;
     joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + player->playerIndex);
     player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers);
+    player->e.visible = player->alive && (player->isHittable % 2 == 0);
 }
 
 void drop_weapon(Player *player)

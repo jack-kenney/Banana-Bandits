@@ -398,26 +398,10 @@ void battle_mode_loop(void)
                 weapon_draw_hitbubble((Weapon *)state.entities[state.numPlayers + i], state.hitbubbleFP, state.dplHitbubble);
             }
 
-            // Draw players
-            for (int i = 0; i < 4; i++)
+            // Draw all entities generically
+            for (int i = 0; i < state.numEntities; i++)
             {
-                if (((Player *)state.entities[i])->alive && (((Player *)state.entities[i])->isHittable % 2 == 0))
-                {
-                    // Buffered skeletons require selecting the active matrices before drawing.
-                    // Also, the model matrix is buffered per-frame to avoid RSP/CPU races.
-                    t3d_skeleton_use(((Player *)state.entities[i])->skel);
-                    t3d_matrix_push(&((Player *)state.entities[i])->e.modelMatFP[state.frameIdx]);
-                    rspq_block_run(((Player *)state.entities[i])->e.dplEntity);
-                    t3d_matrix_pop(1);
-                }
-            }
-
-            // Draw weapons
-            for (int i = 0; i < 2; i++)
-            {
-                t3d_matrix_push(&((Weapon *)state.entities[state.numPlayers + i])->e.modelMatFP[state.frameIdx]);
-                rspq_block_run(((Weapon *)state.entities[state.numPlayers + i])->e.dplEntity);
-                t3d_matrix_pop(1);
+                entity_draw(state.entities[i], state.frameIdx);
             }
 
             // ======== Draw (2D) ======== //

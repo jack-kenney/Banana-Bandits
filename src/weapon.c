@@ -48,6 +48,7 @@ void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
     Weapon *weapon = (Weapon *)e;
     weapon->e.type = E_WEAPON;
+    weapon->e.visible = true;
     weapon->e.modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
     weapon->e.pos = position;
     weapon->equipped = false;
@@ -63,11 +64,20 @@ void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 
     weapon_refresh_aabb(weapon);
 
-    // Record a matrix-free display list; caller pushes the correct matrix per frame.
-    rspq_block_begin();
-    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-    t3d_model_draw(model);
-    weapon->e.dplEntity = rspq_block_end();
+    // Record per-frame display lists (matrix push/pop included).
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        t3d_mat4fp_from_srt_euler(&weapon->e.modelMatFP[i],
+                                  (float[3]){0.5f, 0.5f, 0.5f},
+                                  (float[3]){0.0f, 0.0f, 0.0f},
+                                  weapon->e.pos.v);
+        rspq_block_begin();
+        t3d_matrix_push(&weapon->e.modelMatFP[i]);
+        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+        t3d_model_draw(model);
+        t3d_matrix_pop(1);
+        weapon->e.dplEntity[i] = rspq_block_end();
+    }
 
     // debugf("Weapon initialized and DPLs created.\n");
     // debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
@@ -76,14 +86,17 @@ void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 // Cleanup weapon resources
 void weapon_cleanup(Weapon *weapon)
 {
-    if (weapon->e.dplEntity)
-        rspq_block_free(weapon->e.dplEntity);
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        if (weapon->e.dplEntity[i])
+            rspq_block_free(weapon->e.dplEntity[i]);
+        weapon->e.dplEntity[i] = NULL;
+    }
     if (weapon->e.modelMatFP)
         free_uncached(weapon->e.modelMatFP);
     if (weapon->hit)
         free_uncached(weapon->hit);
 
-    weapon->e.dplEntity = NULL;
     weapon->e.modelMatFP = NULL;
     weapon->hit = NULL;
     weapon->attachedPlayer = NULL;

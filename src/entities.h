@@ -35,17 +35,19 @@ typedef enum {
 
 typedef struct Entity {
     T3DVec3 pos;
-    rspq_block_t *dplEntity;
+    rspq_block_t *dplEntity[FB_COUNT];
     T3DMat4FP *modelMatFP;
     AabbF aabb;
     EntityInitFunc init;
     EntityUpdateFunc update;
     EntityCleanupFunc cleanup;
     EntityType type; 
+    bool visible;
 } Entity;
 
 void entity_init(Entity *e, T3DVec3 position, T3DModel *model, EntityType type);
 void entity_update(Entity *e, const EntityUpdateContext *ctx);
+void entity_draw(Entity *e, int frameIdx);
 void entity_cleanup(Entity *e);
 
 #endif // ENTITIES_H
