@@ -480,7 +480,6 @@ int main(void)
             rdpq_fill_rectangle(HP[2] + 20, 200, 120, 205);
             rdpq_fill_rectangle(HP[3] + 200, 200, 300, 205);
             // Draw shared 2D overlay (if desired across all modes)
-            rdpq_sync_pipe();
             rdpq_set_mode_standard();
             rdpq_mode_alphacompare(128);
             rdpq_sprite_blit(spriteBanana, 10, 20, NULL);
@@ -488,7 +487,6 @@ int main(void)
         break;
         case GAME_MODE_PAUSE:
         {
-            rspq_block_run(dplMap);
             float posX = 127;
             float posY = 40;
             if (menuSelection > 2)
@@ -537,14 +535,12 @@ int main(void)
                     break;
                 }
             }
-            rdpq_sync_pipe();
         }
         break;
         case GAME_MODE_MENU:
         {
             // draw menu here
             //  ======== Draw (UI) ======== //
-            rspq_block_run(dplMap);
             float posX = 127;
             float posY = 40;
             if (menuSelection > 1)
@@ -585,7 +581,6 @@ int main(void)
                     break;
                 }
             }
-            rdpq_sync_pipe();
         }
         break;
         case (GAME_MODE_RESET):
@@ -598,7 +593,6 @@ int main(void)
         break;
         case (GAME_MODE_END):
         {
-            rspq_block_run(dplMap);
             debugDrawMapCandidates = false;
             float posX = 127;
             float posY = 100;
@@ -619,7 +613,6 @@ int main(void)
                 gameMode = GAME_MODE_MENU;
                 menuSelection = 0;
             }
-            rdpq_sync_pipe();
         }
         }
 
