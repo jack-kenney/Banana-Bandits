@@ -11,8 +11,6 @@
 #define PLAYER_AABB_HEIGHT 90.0f
 #define PLAYER_AABB_WIDTH 30.0f
 
-extern int numPlayers;
-extern Entity *entities[];
 //Player players[4];
 
 static inline void player_refresh_aabb(Player *player)
@@ -133,7 +131,7 @@ void player_entity_update(Entity *e, const EntityUpdateContext *ctx)
         return;
     Player *player = (Player *)e;
     joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + player->playerIndex);
-    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime);
+    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers);
 }
 
 void drop_weapon(Player *player)
@@ -272,7 +270,7 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers)
     }
 }
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime)
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers)
 {
     
     if(player->state.s == STATE_HITLAG)

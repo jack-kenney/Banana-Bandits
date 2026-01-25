@@ -83,6 +83,7 @@ $(FILESYSTEM_DIR)/%.xm64: $(ASSETS_DIR)/%.XM
 	$(N64_AUDIOCONV) $(AUDIOCONV_FLAGS) -o $(dir $@) "$<"
 
 OBJS = $(BUILD_DIR)/main.o \
+       $(BUILD_DIR)/battle.o \
        $(BUILD_DIR)/player.o \
        $(BUILD_DIR)/weapon.o \
 	   $(BUILD_DIR)/util.o \
