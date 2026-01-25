@@ -34,8 +34,6 @@ T3DMat4FP *mapMatFP;
 T3DMat4FP *hitbubbleFP;
 rspq_block_t *dplMap;
 rspq_block_t *dplHitbubble;
-T3DModel *model;
-T3DModel *modelShadow;
 T3DModel *modelMap;
 T3DModel *modelWeapon;
 T3DModel *modelBanana;
