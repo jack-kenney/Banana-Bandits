@@ -194,7 +194,7 @@ static void battle_init(BattleState *state)
     state->lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&state->lightDirVec);
 
-    state->modelMap = t3d_model_load("rom:/map1.t3dm");
+    state->modelMap = t3d_model_load("rom:/map.t3dm");
     rspq_block_begin();
     t3d_model_draw(state->modelMap);
     state->dplMap = rspq_block_end();
