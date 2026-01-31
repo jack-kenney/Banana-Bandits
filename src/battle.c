@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <libdragon.h>
 #include <rspq_profile.h>
@@ -35,6 +36,7 @@ typedef struct BattleState
     T3DVec3 camPos;
     T3DVec3 camTarget;
     T3DVec3 lightDirVec;
+    T3DVec3 spawnPositions[4];
     float globalYrot;
     int gameMode;
     int frameIdx;
@@ -51,12 +53,37 @@ typedef struct BattleState
     rspq_profile_data_t perf_prev_rspq;
 } BattleState;
 
-static const T3DVec3 spawnPositions[] = {
+static const T3DVec3 defaultSpawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, -100}},
     (T3DVec3){{100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, 100}},
 };
+
+static bool starts_with_ci(const char *str, const char *prefix)
+{
+    if (!str || !prefix)
+        return false;
+
+    for (; *prefix != '\0'; str++, prefix++)
+    {
+        if (*str == '\0')
+            return false;
+        if (tolower((unsigned char)*str) != tolower((unsigned char)*prefix))
+            return false;
+    }
+
+    return true;
+}
+
+static bool map_draw_filter(void *userData, const T3DObject *obj)
+{
+    (void)userData;
+    if (!obj || !obj->name)
+        return true;
+
+    return !starts_with_ci(obj->name, "spawn");
+}
 
 enum GameMode
 {
@@ -153,7 +180,7 @@ static void battle_start_match(BattleState *state)
         Player *p = malloc(sizeof(Player));
         state->entities[i] = (Entity *)p;
         p->e.init = (EntityInitFunc)player_init;
-        p->e.init((Entity *)p, spawnPositions[i], state->modelBanana);
+        p->e.init((Entity *)p, state->spawnPositions[i], state->modelBanana);
         p->e.update = player_entity_update;
         p->e.cleanup = player_entity_cleanup;
         p->playerIndex = i;
@@ -194,9 +221,15 @@ static void battle_init(BattleState *state)
     state->lightDirVec = (T3DVec3){{1.0f, 1.0f, 1.0f}};
     t3d_vec3_norm(&state->lightDirVec);
 
+    memcpy(state->spawnPositions, defaultSpawnPositions, sizeof(defaultSpawnPositions));
+
     state->modelMap = t3d_model_load("rom:/map.t3dm");
+    int mapSpawns = enumerate_map_objects(state->modelMap, state->spawnPositions, 4);
+    debugf("Map spawns found: %d\n", mapSpawns);
     rspq_block_begin();
-    t3d_model_draw(state->modelMap);
+    T3DModelDrawConf drawConf = {0};
+    drawConf.filterCb = map_draw_filter;
+    t3d_model_draw_custom(state->modelMap, drawConf);
     state->dplMap = rspq_block_end();
 }
 

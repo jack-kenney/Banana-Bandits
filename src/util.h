@@ -3,6 +3,7 @@
 
 #include "entities.h"
 #include <t3d/t3dmath.h>
+#include <t3d/t3dmodel.h>
 
 typedef struct {
     uint64_t cpu_frame_us;
@@ -31,5 +32,6 @@ void debug_draw_aabbf(surface_t *surface, T3DViewport *viewport, const AabbF *aa
 void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, const T3DObject *obj, const T3DMat4 *modelMat, uint32_t color);
 
 void game_reset(T3DVec3 spawnPositions[4], Entity *entities[], int numPlayers);
+int enumerate_map_objects(const T3DModel *model, T3DVec3 *spawnPositions, int maxSpawns);
 
 #endif
