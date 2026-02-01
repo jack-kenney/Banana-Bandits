@@ -206,7 +206,9 @@ static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
     int16_t objMaxX = mapColObj->aabbMax[0];
     int16_t objMinZ = mapColObj->aabbMin[2];
     int16_t objMaxZ = mapColObj->aabbMax[2];
-    int16_t objY = mapColObj->aabbMax[1]; // use top Y for ground
+    int16_t objMinY = mapColObj->aabbMin[1];
+    int16_t objMaxY = mapColObj->aabbMax[1];
+    int16_t objY = objMaxY; // use top Y for ground
 
     // Check horizontal overlap.
     if (player->e.aabb.max.v[0] < objMinX || player->e.aabb.min.v[0] > objMaxX)
@@ -214,8 +216,16 @@ static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
     if (player->e.aabb.max.v[2] < objMinZ || player->e.aabb.min.v[2] > objMaxZ)
         return false;
 
-    // Check vertical penetration.
-    if (player->e.aabb.min.v[1] < objY && player->e.aabb.max.v[1] > objY)
+    // Require vertical overlap with the object bounds.
+    const float minY = player->e.aabb.min.v[1];
+    const float maxY = player->e.aabb.max.v[1];
+    if (maxY < objMinY || minY > objMaxY)
+        return false;
+
+    // Snap to top only when feet are near top or during a jump.
+    const float eps = 0.5f;
+    if ((minY >= objY - eps && minY <= objY + eps) ||
+        (player->jumpFrame > 0 && minY <= objY && maxY >= objY))
     {
         // Push player up to the top of the object.
         player->e.pos.v[1] = objY;
@@ -224,7 +234,38 @@ static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
         player->asc = false;
         return true;
     }
+    // Otherwise resolve in XZ to keep player outside the object.
+    const float aMinX = player->e.aabb.min.v[0];
+    const float aMaxX = player->e.aabb.max.v[0];
+    const float aMinZ = player->e.aabb.min.v[2];
+    const float aMaxZ = player->e.aabb.max.v[2];
 
+    float penX = fminf(aMaxX - objMinX, objMaxX - aMinX);
+    float penZ = fminf(aMaxZ - objMinZ, objMaxZ - aMinZ);
+    if (penX <= 0.0f || penZ <= 0.0f)
+        return false;
+
+    const float sepBias = 0.05f;
+    float pushX = 0.0f;
+    float pushZ = 0.0f;
+    if (penX < penZ)
+    {
+        float aCenterX = 0.5f * (aMinX + aMaxX);
+        float bCenterX = 0.5f * (objMinX + objMaxX);
+        float s = (aCenterX < bCenterX) ? -1.0f : 1.0f;
+        pushX = s * (penX + sepBias);
+    }
+    else
+    {
+        float aCenterZ = 0.5f * (aMinZ + aMaxZ);
+        float bCenterZ = 0.5f * (objMinZ + objMaxZ);
+        float s = (aCenterZ < bCenterZ) ? -1.0f : 1.0f;
+        pushZ = s * (penZ + sepBias);
+    }
+
+    player->e.pos.v[0] += pushX;
+    player->e.pos.v[2] += pushZ;
+    player_refresh_aabb(player);
     return false;
 }
 // internal helper: collision detection
@@ -313,6 +354,7 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers,
         player_refresh_aabb((Player *)entities[i]);
     }
     T3DModelIter mapColIt = t3d_model_iter_create(state->modelMap, T3D_CHUNK_TYPE_OBJECT);
+    bool onTop = false;
     while(t3d_model_iter_next(&mapColIt))
     {
         T3DObject *mapColObj = mapColIt.object;
@@ -320,9 +362,12 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers,
             continue;
         if (resolve_player_map_collision(player, mapColObj))
         {
+            onTop = true;
             break;
         };
     }
+    if (!onTop && !player->asc && player->jumpFrame == 0)
+        player->e.pos.v[1] = 0.0f;
     player_refresh_aabb(player);
 }
 
