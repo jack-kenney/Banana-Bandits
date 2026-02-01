@@ -26,6 +26,21 @@ static inline T3DVec3 vec3_from_s16(const int16_t *p)
     return (T3DVec3){{(float)p[0], (float)p[1], (float)p[2]}};
 }
 
+static inline T3DVec3 closest_point_on_segment(const T3DVec3 *p, const T3DVec3 *a, const T3DVec3 *b)
+{
+    T3DVec3 ab, ap, res;
+    t3d_vec3_diff(&ab, b, a);
+    t3d_vec3_diff(&ap, p, a);
+    float denom = t3d_vec3_dot(&ab, &ab);
+    if (denom <= 1e-6f)
+        return *a;
+    float t = t3d_vec3_dot(&ap, &ab) / denom;
+    t = clampf(t, 0.0f, 1.0f);
+    t3d_vec3_scale(&res, &ab, t);
+    t3d_vec3_add(&res, a, &res);
+    return res;
+}
+
 static inline void entity_translate(Entity *e, const T3DVec3 *delta)
 {
     e->pos.v[0] += delta->v[0];
@@ -45,6 +60,23 @@ static T3DVec3 closest_point_on_triangle(const T3DVec3 *p, const T3DVec3 *a, con
     t3d_vec3_diff(&ab, b, a);
     t3d_vec3_diff(&ac, c, a);
     t3d_vec3_diff(&ap, p, a);
+
+    T3DVec3 n;
+    t3d_vec3_cross(&n, &ab, &ac);
+    if (t3d_vec3_len2(&n) <= 1e-6f)
+    {
+        T3DVec3 cp_ab = closest_point_on_segment(p, a, b);
+        T3DVec3 cp_bc = closest_point_on_segment(p, b, c);
+        T3DVec3 cp_ca = closest_point_on_segment(p, c, a);
+        float d_ab = t3d_vec3_distance2(p, &cp_ab);
+        float d_bc = t3d_vec3_distance2(p, &cp_bc);
+        float d_ca = t3d_vec3_distance2(p, &cp_ca);
+        if (d_ab <= d_bc && d_ab <= d_ca)
+            return cp_ab;
+        if (d_bc <= d_ca)
+            return cp_bc;
+        return cp_ca;
+    }
 
     float d1 = t3d_vec3_dot(&ab, &ap);
     float d2 = t3d_vec3_dot(&ac, &ap);
