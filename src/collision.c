@@ -423,10 +423,10 @@ bool collision_resolve_entity_vs_map(Entity *entity, const T3DModel *model, bool
             const T3DObjectPart *part = &obj->parts[p];
             const T3DVertPacked *partVerts = part->vert;
 
-            if (debug_this)
+            /*if (debug_this)
                 debugf("[collision] part=%u vertDest=%u vertLoad=%u idx=%u idxSeq=%u strip0=%u\n",
                        p, part->vertDestOffset, part->vertLoadCount, part->numIndices,
-                       part->idxSeqCount, part->numStripIndices[0]);
+                       part->idxSeqCount, part->numStripIndices[0]);*/
 
             for (uint32_t i = 0; i + 2 < part->numIndices; i += 3)
             {
