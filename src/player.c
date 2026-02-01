@@ -230,8 +230,8 @@ static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
         // Push player up to the top of the object.
         player->e.pos.v[1] = objY;
         player_refresh_aabb(player);
-        player->jumpFrame = 0;
-        player->asc = false;
+        //player->jumpFrame = 0;
+        //player->asc = false;
         return true;
     }
     // Otherwise resolve in XZ to keep player outside the object.
