@@ -30,8 +30,8 @@ typedef struct Player
     bool alive;
     float currSpeed;
     float rotY;
-    int jumpFrame;
-    bool asc;
+    float velY;
+    bool onGround;
     T3DSkeleton *skel;
     T3DSkeleton *skelBlend;
     int handBoneIdx;

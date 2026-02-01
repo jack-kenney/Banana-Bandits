@@ -12,6 +12,8 @@
 #define FB_COUNT 3
 #define PLAYER_AABB_HEIGHT 90.0f
 #define PLAYER_AABB_WIDTH 30.0f
+#define PLAYER_GRAVITY -900.0f
+#define PLAYER_JUMP_VEL 260.0f
 
 //Player players[4];
 
@@ -35,8 +37,8 @@ void player_init(Entity *e, T3DVec3 position, T3DModel *model)
     player->e.pos = position;
     player->currSpeed = 0.0f;
     player->rotY = 0.0f;
-    player->jumpFrame = 0;
-    player->asc = false;
+    player->velY = 0.0f;
+    player->onGround = true;
     player->alive = true;
     player->isHittable = 0;
     player->hitpoints = 100.0f;
@@ -222,16 +224,13 @@ static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
     if (maxY < objMinY || minY > objMaxY)
         return false;
 
-    // Snap to top only when feet are near top or during a jump.
+    // Snap to top only when feet are near top.
     const float eps = 0.5f;
-    if ((minY >= objY - eps && minY <= objY + eps) ||
-        (player->jumpFrame > 0 && minY <= objY && maxY >= objY))
+    if (minY >= objY - eps && minY <= objY + eps)
     {
         // Push player up to the top of the object.
         player->e.pos.v[1] = objY;
         player_refresh_aabb(player);
-        //player->jumpFrame = 0;
-        //player->asc = false;
         return true;
     }
     // Otherwise resolve in XZ to keep player outside the object.
@@ -353,21 +352,18 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers,
         player_refresh_aabb(player);
         player_refresh_aabb((Player *)entities[i]);
     }
-    T3DModelIter mapColIt = t3d_model_iter_create(state->modelMap, T3D_CHUNK_TYPE_OBJECT);
     bool onTop = false;
-    while(t3d_model_iter_next(&mapColIt))
+    if (state && state->modelMap)
+        collision_resolve_entity_vs_map(&player->e, state->modelMap, &onTop);
+    if (!onTop && player->e.pos.v[1] < 1.0f)
     {
-        T3DObject *mapColObj = mapColIt.object;
-        if (starts_with_ci(mapColObj->name, "Plane"))
-            continue;
-        if (resolve_player_map_collision(player, mapColObj))
-        {
-            onTop = true;
-            break;
-        };
-    }
-    if (!onTop && !player->asc && player->jumpFrame == 0)
         player->e.pos.v[1] = 0.0f;
+        player->velY = 0.0f;
+        onTop = true;
+    }
+    player->onGround = onTop;
+    if (player->onGround && player->velY < 0.0f)
+        player->velY = 0.0f;
     player_refresh_aabb(player);
 }
 
@@ -477,27 +473,14 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     }
     */
 
-    if (joybtns.a && !player->asc && player->jumpFrame == 0)
-        player->asc = true;
-
-    if (player->asc) // && !joypad.btn.a)
+    if (joybtns.a && player->onGround)
     {
-        if (player->jumpFrame < 5)
-        {
-            player->e.pos.v[1] += JUMP_HEIGHT;
-            player->jumpFrame++;
-        }
-        else if (player->jumpFrame >= 5 && player->jumpFrame < 10)
-        {
-            player->e.pos.v[1] -= JUMP_HEIGHT;
-            player->jumpFrame++;
-        }
-        else
-        {
-            player->jumpFrame = 0;
-            player->asc = false;
-        }
+        player->velY = PLAYER_JUMP_VEL;
+        player->onGround = false;
     }
+
+    player->velY += PLAYER_GRAVITY * deltaTime;
+    player->e.pos.v[1] += player->velY * deltaTime;
 
     // Keep the gameplay/debug AABB tied to the final position (including vertical movement).
     player_refresh_aabb(player);
