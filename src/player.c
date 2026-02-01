@@ -6,6 +6,8 @@
 #include <string.h>
 #include <t3d/t3dskeleton.h>
 #include "collision.h"
+#include "battle.h"
+#include "util.h"
 
 #define FB_COUNT 3
 #define PLAYER_AABB_HEIGHT 90.0f
@@ -144,7 +146,7 @@ void player_entity_update(Entity *e, const EntityUpdateContext *ctx)
         return;
     Player *player = (Player *)e;
     joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + player->playerIndex);
-    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers);
+    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers, ctx->state);
     player->e.visible = player->alive && (player->isHittable % 2 == 0);
 }
 
@@ -196,9 +198,37 @@ void drop_weapon(Player *player)
 
     player->weapon = NULL;
 }
+static bool resolve_player_map_collision(Player *player, T3DObject *mapColObj)
+{
+    // Simple Y-axis collision resolution with map collision object.
+    // Assumes mapColObj is axis-aligned and flat on Y axis.
+    int16_t objMinX = mapColObj->aabbMin[0];
+    int16_t objMaxX = mapColObj->aabbMax[0];
+    int16_t objMinZ = mapColObj->aabbMin[2];
+    int16_t objMaxZ = mapColObj->aabbMax[2];
+    int16_t objY = mapColObj->aabbMax[1]; // use top Y for ground
 
+    // Check horizontal overlap.
+    if (player->e.aabb.max.v[0] < objMinX || player->e.aabb.min.v[0] > objMaxX)
+        return false;
+    if (player->e.aabb.max.v[2] < objMinZ || player->e.aabb.min.v[2] > objMaxZ)
+        return false;
+
+    // Check vertical penetration.
+    if (player->e.aabb.min.v[1] < objY && player->e.aabb.max.v[1] > objY)
+    {
+        // Push player up to the top of the object.
+        player->e.pos.v[1] = objY;
+        player_refresh_aabb(player);
+        player->jumpFrame = 0;
+        player->asc = false;
+        return true;
+    }
+
+    return false;
+}
 // internal helper: collision detection
-static void collision_detect(Player *player, Entity *entities[], int numPlayers)
+static void collision_detect(Player *player, Entity *entities[], int numPlayers, BattleState *state)
 {
     for (int i = numPlayers; i < numPlayers + 2; i++)
     {
@@ -282,9 +312,22 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers)
         player_refresh_aabb(player);
         player_refresh_aabb((Player *)entities[i]);
     }
+    T3DModelIter mapColIt = t3d_model_iter_create(state->modelMap, T3D_CHUNK_TYPE_OBJECT);
+    while(t3d_model_iter_next(&mapColIt))
+    {
+        T3DObject *mapColObj = mapColIt.object;
+        if (starts_with_ci(mapColObj->name, "Plane"))
+            continue;
+        if (resolve_player_map_collision(player, mapColObj))
+        {
+            break;
+        };
+    }
+    player_refresh_aabb(player);
 }
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers)
+
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers, BattleState *state)
 {
     
     if(player->state.s == STATE_HITLAG)
@@ -530,7 +573,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
 
 
     // Run collision after AABB refresh so overlap tests use current frame positions.
-    collision_detect(player, entities, numPlayers);
+    collision_detect(player, entities, numPlayers, state);
     t3d_mat4fp_from_srt_euler(&player->e.modelMatFP[frameIdx],
                               (float[3]){0.125f, 0.125f, 0.125f},
                               (float[3]){0.0f, -player->rotY, 0},

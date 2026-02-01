@@ -4,9 +4,9 @@
 #include "battle.h"
 #include "util.h"
 
-
 static xm64player_t musicPlayer;
 wav64_t dominating, smack1, smack2, smack3, smack4;
+
 // Function to initialize some console and t3d stuff, load models, premake RSP blocks.
 void game_init()
 {

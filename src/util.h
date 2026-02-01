@@ -33,5 +33,6 @@ void debug_draw_object_aabb_mat4(surface_t *surface, T3DViewport *viewport, cons
 
 void game_reset(T3DVec3 spawnPositions[4], Entity *entities[], int numPlayers);
 int enumerate_map_objects(const T3DModel *model, T3DVec3 *spawnPositions, int maxSpawns);
+bool starts_with_ci(const char *str, const char *prefix);
 
 #endif

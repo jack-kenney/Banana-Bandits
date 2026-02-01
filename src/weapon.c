@@ -9,7 +9,6 @@
 #include "collision.h"
 
 extern wav64_t dominating, smack1, smack2, smack3, smack4;
-
 #define FB_COUNT 3
 
 // Weapon AABB dimensions (world units).

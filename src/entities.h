@@ -13,6 +13,7 @@
 #define ATK_LENGTH 30.0f
 
 typedef struct Entity Entity;
+typedef struct BattleState BattleState;
 
 typedef void (*EntityInitFunc)(Entity *e, T3DVec3 position, T3DModel *model);
 typedef struct EntityUpdateContext {
@@ -22,6 +23,7 @@ typedef struct EntityUpdateContext {
     float globalYrot;
     Entity **entities;
     int numPlayers;
+    BattleState *state;
 } EntityUpdateContext;
 
 typedef void (*EntityUpdateFunc)(Entity *e, const EntityUpdateContext *ctx);  

@@ -172,7 +172,7 @@ void did_i_win(int *winner, Entity *entities[], int numPlayers)
     }
 }
 
-static bool starts_with_ci(const char *str, const char *prefix)
+bool starts_with_ci(const char *str, const char *prefix)
 {
     if (!str || !prefix)
         return false;
@@ -221,7 +221,7 @@ static int parse_spawn_index(const char *name, int maxSpawns)
     return (int)(idx - 1);
 }
 
-static T3DVec3 object_aabb_center(const T3DObject *obj)
+T3DVec3 object_aabb_center(const T3DObject *obj)
 {
     const float minX = s16_to_f32(obj->aabbMin[0]);
     const float minY = s16_to_f32(obj->aabbMin[1]);

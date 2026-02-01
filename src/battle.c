@@ -1,9 +1,7 @@
 #include "battle.h"
 
 #include <math.h>
-#include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
 #include <libdragon.h>
 #include <rspq_profile.h>
@@ -13,45 +11,14 @@
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
 #include <t3d/t3dskeleton.h>
-
+#include "battle.h"
 #include "collision.h"
 #include "entities.h"
 #include "player.h"
 #include "util.h"
 #include "weapon.h"
 
-#define MAX_ENTITIES 16
-
-typedef struct BattleState
-{
-    surface_t *depthBuffer;
-    T3DViewport viewport;
-    T3DMat4FP *hitbubbleFP;
-    rspq_block_t *dplMap;
-    rspq_block_t *dplHitbubble;
-    T3DModel *modelMap;
-    T3DModel *modelWeapon;
-    T3DModel *modelBanana;
-    T3DModel *modelHitbubble;
-    T3DVec3 camPos;
-    T3DVec3 camTarget;
-    T3DVec3 lightDirVec;
-    T3DVec3 spawnPositions[4];
-    float globalYrot;
-    int gameMode;
-    int frameIdx;
-    int winner;
-    float HP[4];
-    float lastTime;
-    sprite_t *spriteBanana;
-    Entity *entities[MAX_ENTITIES];
-    int numEntities;
-    int numPlayers;
-    bool debugDrawMapCandidates;
-    perf_stats_t perf_last;
-    uint64_t perf_prev_mixer_ticks;
-    rspq_profile_data_t perf_prev_rspq;
-} BattleState;
+perf_stats_t empty_perf_stats = {0};
 
 static const T3DVec3 defaultSpawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
@@ -59,22 +26,6 @@ static const T3DVec3 defaultSpawnPositions[] = {
     (T3DVec3){{100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, 100}},
 };
-
-static bool starts_with_ci(const char *str, const char *prefix)
-{
-    if (!str || !prefix)
-        return false;
-
-    for (; *prefix != '\0'; str++, prefix++)
-    {
-        if (*str == '\0')
-            return false;
-        if (tolower((unsigned char)*str) != tolower((unsigned char)*prefix))
-            return false;
-    }
-
-    return true;
-}
 
 static bool map_draw_filter(void *userData, const T3DObject *obj)
 {
@@ -419,6 +370,7 @@ void battle_mode_loop(void)
                 .globalYrot = state.globalYrot,
                 .entities = state.entities,
                 .numPlayers = state.numPlayers,
+                .state = &state,
             };
 
             for (int i = 0; i < state.numEntities; i++)

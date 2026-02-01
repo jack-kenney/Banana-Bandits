@@ -44,7 +44,7 @@ typedef struct Player
 
 /* Player API */
 void player_init(Entity *e, T3DVec3 position, T3DModel *model);
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers);
+void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers, BattleState *state);
 void player_cleanup(Player *player);
 void player_entity_cleanup(Entity *e);
 void player_entity_update(Entity *e, const EntityUpdateContext *ctx);
