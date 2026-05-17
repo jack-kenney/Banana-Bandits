@@ -4,7 +4,7 @@ Banana Bandits is a Nintendo 64 homebrew arena brawler built with [libdragon](ht
 
 Click the image below for a brief YouTube video of the gameplay.
 
-[![Preview clip](https://img.youtube.com/vi/uIj8LrfUWTw/0.jpg)](https://youtu.be/uIj8LrfUWTw)
+[![Preview clip](https://img.youtube.com/vi/mCl8ZxVs_-0/0.jpg)](https://youtu.be/mCl8ZxVs_-0)
 
 ## Lessons Learned
 
