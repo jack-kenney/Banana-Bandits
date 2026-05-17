@@ -20,6 +20,10 @@
 
 perf_stats_t empty_perf_stats = {0};
 
+#define BATTLE_FIXED_DT (1.0f / 60.0f)
+#define BATTLE_MAX_FRAME_DT (BATTLE_FIXED_DT * 5.0f)
+#define BATTLE_MAX_FIXED_STEPS 5
+
 static const T3DVec3 defaultSpawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
     (T3DVec3){{0, 0.15f, -100}},
@@ -153,7 +157,7 @@ static void battle_start_match(BattleState *state)
     state->numEntities = state->numPlayers + 2;
 
     // Timing variables
-    state->lastTime = get_time_s() - (1.0f / 60.0f);
+    state->lastTime = get_time_s();
     state->frameIdx = 0;
     // Per-player initialization tasks happen in this loop
 
@@ -198,6 +202,38 @@ static void battle_shutdown(BattleState *state)
     t3d_viewport_destroy(&state->viewport);
 }
 
+static void battle_fixed_update(BattleState *state, const joypad_inputs_t joypadInputs[4], const joypad_buttons_t joypadPressed[4])
+{
+    did_i_win(&state->winner, state->entities, state->numPlayers);
+
+    if (state->winner != -1)
+    {
+        state->gameMode = GAME_MODE_END;
+        return;
+    }
+
+    state->globalYrot += ((2 * T3D_PI) / 60.0f);
+    state->globalYrot = fmodf(state->globalYrot, (2 * T3D_PI));
+
+    EntityUpdateContext updateCtx = {
+        .deltaTime = BATTLE_FIXED_DT,
+        .frameIdx = state->frameIdx,
+        .camPos = &state->camPos,
+        .globalYrot = state->globalYrot,
+        .joypadInputs = joypadInputs,
+        .joypadPressed = joypadPressed,
+        .entities = state->entities,
+        .numPlayers = state->numPlayers,
+        .state = state,
+    };
+
+    for (int i = 0; i < state->numEntities; i++)
+    {
+        if (state->entities[i] && state->entities[i]->update)
+            state->entities[i]->update(state->entities[i], &updateCtx);
+    }
+}
+
 void battle_mode_loop(void)
 {
     BattleState state;
@@ -214,6 +250,8 @@ void battle_mode_loop(void)
     int sizeY = display_get_height();
 
     int menuSelection = 0;
+    float fixedAccumulator = 0.0f;
+    joypad_buttons_t pendingGameplayPressed[4] = {0};
 
     // Main gameplay loop.
     // TODO: figure out how to limit framerate.
@@ -301,34 +339,76 @@ void battle_mode_loop(void)
         // Keep track of frame index for animation matrices(buffered)
         state.frameIdx = (state.frameIdx + 1) % FB_COUNT;
         float newTime = get_time_s();
-        float deltaTime = newTime - state.lastTime;
+        float frameTime = newTime - state.lastTime;
         state.lastTime = newTime;
-        // debugf("Frame Time: %.4f s (%.2f FPS)\n", deltaTime, 1.0f / deltaTime);
-
-        // Update global Y rotation for weapons
-        state.globalYrot += ((2 * T3D_PI) / 60.0f); // rotate 360 degrees every 60 frames
-        state.globalYrot = fmodf(state.globalYrot, (2 * T3D_PI));
+        if (frameTime > BATTLE_MAX_FRAME_DT)
+            frameTime = BATTLE_MAX_FRAME_DT;
+        // debugf("Frame Time: %.4f s (%.2f FPS)\n", frameTime, 1.0f / frameTime);
 
         // Poll the joypads
         joypad_poll();
 
-        joypad_buttons_t joypad1_btn = joypad_get_buttons_pressed(JOYPAD_PORT_1);
+        joypad_inputs_t joypadInputs[4];
+        joypad_buttons_t joypadPressed[4];
+        for (int i = 0; i < 4; i++)
+        {
+            joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + i);
+            joypadInputs[i] = joypad_get_inputs(port);
+            joypadPressed[i] = joypad_get_buttons_pressed(port);
+        }
 
-        joypad_inputs_t joypad1 = joypad_get_inputs(JOYPAD_PORT_1);
+        joypad_buttons_t joypad1_btn = joypadPressed[0];
+        joypad_inputs_t joypad1 = joypadInputs[0];
         if (joypad1_btn.start && state.gameMode == GAME_MODE_PLAY)
         {
             state.gameMode = GAME_MODE_PAUSE;
+            fixedAccumulator = 0.0f;
         }
         else if (joypad1_btn.start && state.gameMode == GAME_MODE_PAUSE)
         {
             menuSelection = 0;
             state.gameMode = GAME_MODE_PLAY; // toggle between 0 and 1
+            fixedAccumulator = 0.0f;
         }
 
         if (joypad1_btn.c_down)
         {
             wav64_play(&dominating, SFX_CH);
             state.debugDrawMapCandidates = !state.debugDrawMapCandidates;
+        }
+
+        if (state.gameMode == GAME_MODE_PLAY)
+        {
+            fixedAccumulator += frameTime;
+            for (int i = 0; i < 4; i++)
+                pendingGameplayPressed[i].raw |= joypadPressed[i].raw;
+
+            int fixedSteps = 0;
+            joypad_buttons_t stepPressed[4];
+            memcpy(stepPressed, pendingGameplayPressed, sizeof(stepPressed));
+
+            while (fixedAccumulator >= BATTLE_FIXED_DT && fixedSteps < BATTLE_MAX_FIXED_STEPS)
+            {
+                battle_fixed_update(&state, joypadInputs, stepPressed);
+                fixedAccumulator -= BATTLE_FIXED_DT;
+                fixedSteps++;
+                memset(pendingGameplayPressed, 0, sizeof(pendingGameplayPressed));
+                memset(stepPressed, 0, sizeof(stepPressed));
+
+                if (state.gameMode != GAME_MODE_PLAY)
+                {
+                    fixedAccumulator = 0.0f;
+                    break;
+                }
+            }
+
+            if (fixedSteps == BATTLE_MAX_FIXED_STEPS && fixedAccumulator >= BATTLE_FIXED_DT)
+                fixedAccumulator = 0.0f;
+        }
+        else
+        {
+            fixedAccumulator = 0.0f;
+            memset(pendingGameplayPressed, 0, sizeof(pendingGameplayPressed));
         }
 
         // Set viewport
@@ -355,29 +435,6 @@ void battle_mode_loop(void)
         {
         case GAME_MODE_PLAY:
         {
-            // Update players //
-            did_i_win(&state.winner, state.entities, state.numPlayers);
-
-            if (state.winner != -1)
-            {
-                state.gameMode = GAME_MODE_END;
-                break;
-            }
-            EntityUpdateContext updateCtx = {
-                .deltaTime = deltaTime,
-                .frameIdx = state.frameIdx,
-                .camPos = &state.camPos,
-                .globalYrot = state.globalYrot,
-                .entities = state.entities,
-                .numPlayers = state.numPlayers,
-                .state = &state,
-            };
-
-            for (int i = 0; i < state.numEntities; i++)
-            {
-                if (state.entities[i] && state.entities[i]->update)
-                    state.entities[i]->update(state.entities[i], &updateCtx);
-            }
             for (int i = 0; i < 2; i++)
             {
                 weapon_draw_hitbubble((Weapon *)state.entities[state.numPlayers + i], state.hitbubbleFP, state.dplHitbubble);
@@ -457,11 +514,13 @@ void battle_mode_loop(void)
                 case 0:
                     menuSelection = 0;
                     state.gameMode = GAME_MODE_PLAY;
+                    fixedAccumulator = 0.0f;
                     break;
                 case 1:
                     battle_cleanup_match(&state);
                     battle_start_match(&state);
                     state.gameMode = GAME_MODE_PLAY;
+                    fixedAccumulator = 0.0f;
                     break;
                 case 2:
                     menuSelection = 0;

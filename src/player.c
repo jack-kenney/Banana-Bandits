@@ -147,8 +147,7 @@ void player_entity_update(Entity *e, const EntityUpdateContext *ctx)
     if (!e || !ctx)
         return;
     Player *player = (Player *)e;
-    joypad_port_t port = (joypad_port_t)(JOYPAD_PORT_1 + player->playerIndex);
-    player_update(player, port, ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers, ctx->state);
+    player_update(player, &ctx->joypadInputs[player->playerIndex], &ctx->joypadPressed[player->playerIndex], ctx->camPos, ctx->frameIdx, ctx->deltaTime, ctx->entities, ctx->numPlayers, ctx->state);
     player->e.visible = player->alive && (player->isHittable % 2 == 0);
 }
 
@@ -368,7 +367,7 @@ static void collision_detect(Player *player, Entity *entities[], int numPlayers,
 }
 
 
-void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers, BattleState *state)
+void player_update(Player *player, const joypad_inputs_t *joypad, const joypad_buttons_t *joybtns, T3DVec3 *camPos, int frameIdx, float deltaTime, Entity *entities[], int numPlayers, BattleState *state)
 {
     
     if(player->state.s == STATE_HITLAG)
@@ -397,10 +396,8 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     }
     float speed = 0.0f;
     T3DVec3 newDir = {0};
-    joypad_inputs_t joypad = joypad_get_inputs(port);
-    joypad_buttons_t joybtns = joypad_get_buttons_pressed(port);
-    newDir.v[0] = (float)joypad.stick_x * 0.05f;
-    newDir.v[2] = -(float)joypad.stick_y * 0.05f;
+    newDir.v[0] = (float)joypad->stick_x * 0.05f;
+    newDir.v[2] = -(float)joypad->stick_y * 0.05f;
     speed = sqrtf(t3d_vec3_len2(&newDir));
     if (speed > 0.15f)
     {
@@ -416,7 +413,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     {
         player->currSpeed *= 0.64f;
     }
-    if (joypad.btn.z)
+    if (joypad->btn.z)
         player->currSpeed = 5.0f;
 
     if(player->state.s != STATE_DODGE)
@@ -435,7 +432,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     if (player->e.pos.v[2] > BOX_SIZE)
         player->e.pos.v[2] = BOX_SIZE;
 
-    if (joybtns.b && !(player->state.s == STATE_ATTACK))
+    if (joybtns->b && !(player->state.s == STATE_ATTACK))
     {
         // State refactor, delete these later
         // player->attacking = true;
@@ -445,7 +442,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon->isAttack = true;
     }
 
-    if(joybtns.b && (player->state.s == STATE_ATTACK) && (player->state.frame > 20 && player->state.frame < 30))
+    if(joybtns->b && (player->state.s == STATE_ATTACK) && (player->state.frame > 20 && player->state.frame < 30))
     {
         // State refactor, delete these later
         // player->attacking = true;
@@ -455,7 +452,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
             player->weapon->isAttack = true;
     }
 
-    if (joybtns.r && !(player->state.s == STATE_DODGE))
+    if (joybtns->r && !(player->state.s == STATE_DODGE))
     {
         set_player_state(player, (PlayerState){.s = STATE_DODGE, .frame = 0});
     }
@@ -473,7 +470,7 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     }
     */
 
-    if (joybtns.a && player->onGround)
+    if (joybtns->a && player->onGround)
     {
         player->velY = PLAYER_JUMP_VEL;
         player->onGround = false;
@@ -485,17 +482,17 @@ void player_update(Player *player, joypad_port_t port, T3DVec3 *camPos, int fram
     // Keep the gameplay/debug AABB tied to the final position (including vertical movement).
     player_refresh_aabb(player);
 
-    if (joypad.btn.c_right)
+    if (joypad->btn.c_right)
     {
         camPos->v[1] += 2.0f;
     }
 
-    if (joypad.btn.c_left)
+    if (joypad->btn.c_left)
     {
         camPos->v[1] -= 2.0f;
     }
 
-    if (joybtns.c_up)
+    if (joybtns->c_up)
     {
         if (player->weapon)
         {

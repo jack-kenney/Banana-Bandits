@@ -21,6 +21,8 @@ typedef struct EntityUpdateContext {
     int frameIdx;
     T3DVec3 *camPos;
     float globalYrot;
+    const joypad_inputs_t *joypadInputs;
+    const joypad_buttons_t *joypadPressed;
     Entity **entities;
     int numPlayers;
     BattleState *state;
