@@ -20,9 +20,18 @@
 
 perf_stats_t empty_perf_stats = {0};
 
+// Physics runs at 60 Hz so motion stays smooth even when the renderer
+// is running at 60 fps (otherwise every other frame would show no
+// position change and motion looks choppy/jittery).
 #define BATTLE_FIXED_DT (1.0f / 60.0f)
-#define BATTLE_MAX_FRAME_DT (BATTLE_FIXED_DT * 5.0f)
-#define BATTLE_MAX_FIXED_STEPS 5
+// Clamp the per-frame contribution to the accumulator to a tight cap.
+// This is what actually prevents the "spiral of death": if a frame
+// hiccups, we run at most 2 steps and let real time drift rather than
+// piling on catch-up work that makes the next frame even slower.
+#define BATTLE_MAX_FRAME_DT (BATTLE_FIXED_DT * 2.0f)
+// Hard cap on physics steps per render frame, matching the frame
+// clamp above.
+#define BATTLE_MAX_FIXED_STEPS 2
 
 static const T3DVec3 defaultSpawnPositions[] = {
     (T3DVec3){{-100, 0.15f, 0}},
@@ -212,7 +221,7 @@ static void battle_fixed_update(BattleState *state, const joypad_inputs_t joypad
         return;
     }
 
-    state->globalYrot += ((2 * T3D_PI) / 60.0f);
+    state->globalYrot += ((2 * T3D_PI) * BATTLE_FIXED_DT);
     state->globalYrot = fmodf(state->globalYrot, (2 * T3D_PI));
 
     EntityUpdateContext updateCtx = {
