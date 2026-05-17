@@ -1,4 +1,5 @@
-#include "entities.h"
+#include "weapon.h"
+#include "player.h"
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
 #include <stdlib.h>
@@ -7,9 +8,7 @@
 #include <t3d/t3dskeleton.h>
 #include "collision.h"
 
-extern Weapon pipes[];
 extern wav64_t dominating, smack1, smack2, smack3, smack4;
-
 #define FB_COUNT 3
 
 // Weapon AABB dimensions (world units).
@@ -30,27 +29,30 @@ static const float WEAPON_GRIP_OFFSET[3] = {0.0f, 0.0f, 0.0f};
 void weapon_refresh_aabb(Weapon *weapon)
 {
     const bool useHitbox = (weapon->isAttack && weapon->hit);
-    const T3DVec3 *center = useHitbox ? weapon->hit : &weapon->wepPos;
+    const T3DVec3 *center = useHitbox ? weapon->hit : &weapon->e.pos;
 
     const float hx = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_XZ : WEAPON_PICKUP_AABB_HALF_EXTENT_XZ;
     const float hy = useHitbox ? WEAPON_HIT_AABB_HALF_EXTENT_Y : WEAPON_PICKUP_AABB_HALF_EXTENT_Y;
-
-    weapon->aabb.min.v[0] = center->v[0] - hx;
-    weapon->aabb.max.v[0] = center->v[0] + hx;
-    weapon->aabb.min.v[2] = center->v[2] - hx;
-    weapon->aabb.max.v[2] = center->v[2] + hx;
     const float cy = center->v[1] + WEAPON_AABB_Y_OFFSET;
-    weapon->aabb.min.v[1] = cy - hy;
-    weapon->aabb.max.v[1] = cy + hy;
-}
 
-void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
+    weapon->e.aabb.min.v[0] = center->v[0] - hx;
+    weapon->e.aabb.max.v[0] = center->v[0] + hx;
+    weapon->e.aabb.min.v[2] = center->v[2] - hx;
+    weapon->e.aabb.max.v[2] = center->v[2] + hx;
+
+    weapon->e.aabb.min.v[1] = cy - hy;
+    weapon->e.aabb.max.v[1] = cy + hy;
+}
+void weapon_init(Entity *e, T3DVec3 position, T3DModel *model)
 {
-    weapon->modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
-    weapon->wepPos = position;
+    Weapon *weapon = (Weapon *)e;
+    weapon->e.type = E_WEAPON;
+    weapon->e.visible = true;
+    weapon->e.modelMatFP = malloc_uncached(sizeof(T3DMat4FP) * FB_COUNT);
+    weapon->e.pos = position;
     weapon->equipped = false;
     weapon->attachedPlayer = NULL;
-    weapon->damage = 10.0f;
+    weapon->damage = 100.0f;
     weapon->isAttack = false;
     weapon->attackFrame = 0;
     weapon->bobFrame = 0;
@@ -61,13 +63,21 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 
     weapon_refresh_aabb(weapon);
 
-    // Record a matrix-free display list; caller pushes the correct matrix per frame.
-    rspq_block_begin();
-    rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
-    t3d_model_draw(model);
-    weapon->dplWeapon = rspq_block_end();
-    weapon->dplIdle = weapon->dplWeapon;
-    weapon->dplCarry = weapon->dplWeapon;
+    // Record per-frame display lists (matrix push/pop included).
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        t3d_mat4fp_from_srt_euler(&weapon->e.modelMatFP[i],
+                                  (float[3]){0.5f, 0.5f, 0.5f},
+                                  (float[3]){0.0f, 0.0f, 0.0f},
+                                  weapon->e.pos.v);
+        rspq_block_begin();
+        t3d_matrix_push(&weapon->e.modelMatFP[i]);
+        rdpq_set_prim_color(RGBA32(255, 255, 255, 255));
+        t3d_model_draw(model);
+        t3d_matrix_pop(1);
+        weapon->e.dplEntity[i] = rspq_block_end();
+    }
+
     // debugf("Weapon initialized and DPLs created.\n");
     // debugf("Weapon initialized at position: (%f, %f, %f)\n", position.v[0], position.v[1], position.v[2]);
 }
@@ -75,29 +85,54 @@ void weapon_init(Weapon *weapon, T3DVec3 position, T3DModel *model)
 // Cleanup weapon resources
 void weapon_cleanup(Weapon *weapon)
 {
-    if (weapon->dplWeapon)
-        rspq_block_free(weapon->dplWeapon);
-    if (weapon->modelMatFP)
-        free_uncached(weapon->modelMatFP);
+    for (int i = 0; i < FB_COUNT; i++)
+    {
+        if (weapon->e.dplEntity[i])
+            rspq_block_free(weapon->e.dplEntity[i]);
+        weapon->e.dplEntity[i] = NULL;
+    }
+    if (weapon->e.modelMatFP)
+        free_uncached(weapon->e.modelMatFP);
     if (weapon->hit)
         free_uncached(weapon->hit);
 
-    weapon->dplWeapon = NULL;
-    weapon->dplIdle = NULL;
-    weapon->dplCarry = NULL;
-    weapon->modelMatFP = NULL;
+    weapon->e.modelMatFP = NULL;
     weapon->hit = NULL;
     weapon->attachedPlayer = NULL;
     weapon->equipped = false;
 }
-void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
+
+void weapon_entity_cleanup(Entity *e)
+{
+    if (!e)
+        return;
+    weapon_cleanup((Weapon *)e);
+}
+
+void weapon_entity_update(Entity *e, const EntityUpdateContext *ctx)
+{
+    if (!e || !ctx)
+        return;
+    pipe_movement((Weapon *)e, ctx->globalYrot, ctx->frameIdx, ctx->entities, ctx->numPlayers);
+}
+
+void weapon_draw_hitbubble(Weapon *weapon, T3DMat4FP *hitbubbleFP, rspq_block_t *dplHitbubble)
+{
+    if (!weapon || !hitbubbleFP || !dplHitbubble || !weapon->hit)
+        return;
+
+    t3d_mat4fp_from_srt_euler(hitbubbleFP,
+                              (float[3]){0.1f, 0.1f, 0.1f},
+                              (float[3]){0.0f, 0.0f, 0.0f},
+                              weapon->hit->v);
+    rspq_block_run(dplHitbubble);
+}
+void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx, Entity * entities[], int numPlayers)
 {
     pipe->bobFrame += 1;
     if (pipe->bobFrame >= 30)
         pipe->bobFrame = 0;
-    float attackRotation = 0.0f;
     float pitch = 0.0f;
-    // debugf("equipped: %d, attachedPlayer: %p\n", pipe->equipped, (void*)pipe->attachedPlayer);
     if (pipe->equipped && pipe->attachedPlayer)
     {
         Player *p = pipe->attachedPlayer;
@@ -114,7 +149,7 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             t3d_mat4_from_srt_euler(&playerMat,
                                     (float[3]){0.125f, 0.125f, 0.125f},
                                     (float[3]){0.0f, -p->rotY, 0.0f},
-                                    p->playerPos.v);
+                                    p->e.pos.v);
 
             // Bone matrix is in model space. Compose with player transform to get world space.
             t3d_mat4_mul(&worldBoneMat, &playerMat, boneMat);
@@ -123,64 +158,27 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
             T3DMat4 gripMat;
             t3d_mat4_from_srt_euler(&gripMat, WEAPON_GRIP_SCALE, WEAPON_GRIP_ROT, WEAPON_GRIP_OFFSET);
             t3d_mat4_mul(&weaponBaseMat, &worldBoneMat, &gripMat);
-            pipe->wepPos = (T3DVec3){{weaponBaseMat.m[3][0], weaponBaseMat.m[3][1], weaponBaseMat.m[3][2]}};
+            pipe->e.pos = (T3DVec3){{weaponBaseMat.m[3][0], weaponBaseMat.m[3][1], weaponBaseMat.m[3][2]}};
             hasBoneMatrix = true;
-            // debugf("Weapon attached to bone index %d at world position (%f, %f, %f)\n",
-            // p->handBoneIdx, pipe->wepPos.v[0], pipe->wepPos.v[1], pipe->wepPos.v[2]);
         }
         else
         {
             // Fallback if we couldn't resolve a hand bone
-            pipe->wepPos = p->playerPos;
+            pipe->e.pos = p->e.pos;
         }
 
-        // Adjust weapon attachment height
-        //pipe->wepPos.v[1] -= 35.0f;
-        /*
-        if (p->state.s == STATE_ATTACK)
-        {
-            pipe->isAttack = true;
-            T3DVec3 attackDir;
-            t3d_vec3_scale(&attackDir, &p->moveDir, 50.0f);
-            t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
-            if (pipe->attackFrame >= ATK_LENGTH * 2)
-            {
-                pipe->attackFrame = 0;
-                pipe->isAttack = false;
-            }
-            if (pipe->attackFrame < ATK_LENGTH && pipe->isAttack)
-            {
-                pipe->attackFrame += 2;
-                attackRotation = ((T3D_PI / 2) / ATK_LENGTH) * pipe->attackFrame;
-            }
-            else if (pipe->attackFrame >= ATK_LENGTH && pipe->isAttack)
-            {
-                pipe->attackFrame += 2;
-                attackRotation = (T3D_PI / 2) - (((T3D_PI / 2) / ATK_LENGTH) * (pipe->attackFrame - ATK_LENGTH));
-            }
-            pitch = attackRotation;
-        }
-        else
-        {
-            pipe->attackFrame = 0;
-            pipe->isAttack = false;
-            pitch = 0;
-            if (pipe->hit)
-                *pipe->hit = pipe->wepPos;
-        }
-        */
         // Keep weapon AABB in sync; during attacks it's centered at the hit point.
         weapon_refresh_aabb(pipe);
-
+        T3DVec3 attackDir;
+        t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
+        t3d_vec3_add(pipe->hit, &pipe->e.pos, &attackDir);
         // Apply weapon hits via AABB overlap against player AABBs.
-        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15)
+        if (pipe->isAttack && p->state.frame >= 5 && p->state.frame <= 15 && (p->state.s == STATE_ATTACK || p->state.s == STATE_ATTACK2))
         {
-            T3DVec3 attackDir;
-            t3d_vec3_scale(&attackDir, &p->moveDir, 1.0f);
-            t3d_vec3_add(pipe->hit, &pipe->wepPos, &attackDir);
-            for (int i = 0; i < 4; i++)
+
+            for (int i = 0; i < numPlayers; i++)
             {
-                Player *target = &players[i];
+                Player *target = (Player *)entities[i];
                 if (!target->alive)
                     continue;
                 if (target == p)
@@ -188,24 +186,24 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 if (target->isHittable != 0)
                     continue;
 
-                if (!aabbf_overlaps(&pipe->aabb, &target->aabb))
+                if (!aabbf_overlaps(&pipe->e.aabb, &target->e.aabb))
                     continue;
 
                 set_player_state(target, (PlayerState){.s = STATE_HITLAG, .frame = 0});
-                //set_player_state(p, (PlayerState){.s = STATE_HITLAG, .frame = p->state.frame});
+                set_player_state(p, (PlayerState){.s = STATE_HITLAG, .frame = p->state.frame});
                 target->isHittable = 16;
                 target->hitpoints -= pipe->damage;
                 int playIdx = rand() % 4;
                 switch (playIdx)
                 {
                     case 0:
-                        wav64_play(&smack1, 28);
+                        wav64_play(&smack1, 22);
                         break;
                     case 1:
-                        wav64_play(&smack2, 28);
+                        wav64_play(&smack2, 24);
                         break;
                     case 2:
-                        wav64_play(&smack3, 28);
+                        wav64_play(&smack3, 26);
                         break;
                     case 3:
                         wav64_play(&smack4, 28);
@@ -215,6 +213,10 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
                 {
                     wav64_play(&dominating, 30);
                     target->alive = false;
+                    if(target->weapon)
+                    {
+                        drop_weapon(target);
+                    }
                 }
             }
         }
@@ -230,28 +232,28 @@ void pipe_movement(Weapon *pipe, float globalYrot, int frameIdx)
 
             T3DMat4 weaponMat;
             t3d_mat4_mul(&weaponMat, &weaponBaseMat, &attackMat);
-            t3d_mat4_to_fixed_3x4(&pipe->modelMatFP[frameIdx], &weaponMat);
+            t3d_mat4_to_fixed_3x4(&pipe->e.modelMatFP[frameIdx], &weaponMat);
         }
         else
         {
-            t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
+            t3d_mat4fp_from_srt_euler(&pipe->e.modelMatFP[frameIdx],
                                       (float[3]){0.5f, 0.5f, 0.5f},
                                       (float[3]){0, -pipe->rotY + (T3D_PI / 2), pitch},
-                                      pipe->wepPos.v);
+                                      pipe->e.pos.v);
         }
 
     }
     else
     {
         if (pipe->hit)
-            *pipe->hit = pipe->wepPos;
+            *pipe->hit = pipe->e.pos;
 
         weapon_refresh_aabb(pipe);
 
         // keep model matrix in sync with world position when not equipped
-        t3d_mat4fp_from_srt_euler(&pipe->modelMatFP[frameIdx],
+        t3d_mat4fp_from_srt_euler(&pipe->e.modelMatFP[frameIdx],
                                   (float[3]){0.5f, 0.5f, 0.5f},
                                   (float[3]){0.0f, globalYrot, 0.0f},
-                                  pipe->wepPos.v);
+                                  pipe->e.pos.v);
     }
 }

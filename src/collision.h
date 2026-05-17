@@ -12,4 +12,7 @@ typedef struct {
 
 bool aabbf_overlaps(const AabbF *a, const AabbF *b);
 
+typedef struct Entity Entity;
+bool collision_resolve_entity_vs_map(Entity *entity, const T3DModel *model, bool *onGround);
+
 #endif

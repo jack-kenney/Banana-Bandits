@@ -1,8 +1,13 @@
 #include "util.h"
+#include "player.h"
+#include "weapon.h"
 #include <t3d/t3d.h>
 #include <t3d/t3dmath.h>
 #include <t3d/t3dmodel.h>
 #include <libdragon.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 // Pump a small number of audio buffers. This helps prevent underruns when a
 // frame takes longer (gameplay) without stalling too long in one spot.
@@ -119,43 +124,40 @@ float get_time_s(void)
     return (float)((double)get_ticks_us() / 1000000.0);
 }
 
-void game_reset(T3DVec3 spawnPositions[4])
+void game_reset(T3DVec3 spawnPositions[4], Entity * entities[], int numPlayers)
 {
     for (int i = 0; i < 4; i++)
     {
-        players[i].hitpoints = 100.0f;
-        players[i].alive = true;
-        players[i].playerPos = spawnPositions[i];
-        players[i].currSpeed = 0.0f;
-        players[i].moveDir = (T3DVec3){{0, 0, 0}};
-        players[i].rotY = 0.0f;
-        players[i].hasWeapon = false;
-        if (players[i].weapon)
+        ((Player *)entities[i])->hitpoints = 100.0f;
+        ((Player *)entities[i])->alive = true;
+        ((Player *)entities[i])->e.pos = spawnPositions[i];
+        ((Player *)entities[i])->currSpeed = 0.0f;
+        ((Player *)entities[i])->moveDir = (T3DVec3){{0, 0, 0}};
+        ((Player *)entities[i])->rotY = 0.0f;
+        if (((Player *)entities[i])->weapon)
         {
-            players[i].weapon->equipped = false;
-            players[i].weapon->attachedPlayer = NULL;
+            ((Player *)entities[i])->weapon->equipped = false;
+            ((Player *)entities[i])->weapon->attachedPlayer = NULL;
         }
-        players[i].weapon = NULL;
+        ((Player *)entities[i])->weapon = NULL;
     }
 
-    for (int i = 0; i < 2; i++)
+    for (int i = numPlayers; i < numPlayers + 2; i++)
     {
-        pipes[i].equipped = false;
-        pipes[i].attachedPlayer = NULL;
-        pipes[i].isAttack = false;
-        pipes[i].attackFrame = 0;
+        ((Weapon *)entities[i])->equipped = false;
+        ((Weapon *)entities[i])->attachedPlayer = NULL;
+        ((Weapon *)entities[i])->isAttack = false;
+        ((Weapon *)entities[i])->attackFrame = 0;
     }
-    pipes[0].wepPos = (T3DVec3){{0.0f, 0.0f, 0.0f}};
-    pipes[1].wepPos = (T3DVec3){{50.0f, 0.0f, 50.0f}};
 }
 
-void did_i_win(int *winner)
+void did_i_win(int *winner, Entity *entities[], int numPlayers)
 {
     int aliveCount = 0;
     int lastAliveIdx = -1;
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < numPlayers; i++)
     {
-        if (players[i].alive)
+        if (((Player *)entities[i])->alive)
         {
             aliveCount++;
             lastAliveIdx = i;
@@ -168,4 +170,117 @@ void did_i_win(int *winner)
         *winner = lastAliveIdx;
         debugf("Player %d wins the game!\n", *winner + 1);
     }
+}
+
+bool starts_with_ci(const char *str, const char *prefix)
+{
+    if (!str || !prefix)
+        return false;
+
+    for (; *prefix != '\0'; str++, prefix++)
+    {
+        if (*str == '\0')
+            return false;
+        if (tolower((unsigned char)*str) != tolower((unsigned char)*prefix))
+            return false;
+    }
+
+    return true;
+}
+
+static int parse_spawn_index(const char *name, int maxSpawns)
+{
+    if (!name || maxSpawns <= 0)
+        return -1;
+
+    if (!starts_with_ci(name, "spawn"))
+        return -1;
+
+    const char *p = name + 5;
+    if (*p == '_' || *p == '-' || *p == '.')
+        p++;
+
+    if (starts_with_ci(p, "player"))
+    {
+        p += 6;
+        if (*p == '_' || *p == '-' || *p == '.')
+            p++;
+    }
+
+    if (*p == 'p' || *p == 'P')
+        p++;
+
+    char *end = NULL;
+    long idx = strtol(p, &end, 10);
+    if (end == p)
+        return -1;
+
+    if (idx < 1 || idx > maxSpawns)
+        return -1;
+
+    return (int)(idx - 1);
+}
+
+T3DVec3 object_aabb_center(const T3DObject *obj)
+{
+    const float minX = s16_to_f32(obj->aabbMin[0]);
+    const float minY = s16_to_f32(obj->aabbMin[1]);
+    const float minZ = s16_to_f32(obj->aabbMin[2]);
+    const float maxX = s16_to_f32(obj->aabbMax[0]);
+    const float maxY = s16_to_f32(obj->aabbMax[1]);
+    const float maxZ = s16_to_f32(obj->aabbMax[2]);
+
+    return (T3DVec3){{
+        (minX + maxX) * 0.5f,
+        (minY + maxY) * 0.5f,
+        (minZ + maxZ) * 0.5f,
+    }};
+}
+
+int enumerate_map_objects(const T3DModel *model, T3DVec3 *spawnPositions, int maxSpawns)
+{
+    if (!model)
+        return 0;
+
+    if (maxSpawns > 4)
+        maxSpawns = 4;
+    if (!spawnPositions || maxSpawns <= 0)
+        return 0;
+
+    bool used[4] = {false, false, false, false};
+    int found = 0;
+
+    T3DModelIter it = t3d_model_iter_create(model, T3D_CHUNK_TYPE_OBJECT);
+    while(t3d_model_iter_next(&it))
+    {
+        const T3DObject *obj = it.object;
+        debugf("Map Object: %s, Parts: %d, Triangles: %d\n", obj->name ? obj->name : "(null)", obj->numParts, obj->triCount);
+
+        if (!obj->name)
+            continue;
+
+        int idx = parse_spawn_index(obj->name, maxSpawns);
+        if (idx < 0 && starts_with_ci(obj->name, "spawn"))
+        {
+            for (int i = 0; i < maxSpawns; i++)
+            {
+                if (!used[i])
+                {
+                    idx = i;
+                    break;
+                }
+            }
+        }
+
+        if (idx >= 0 && idx < maxSpawns && !used[idx])
+        {
+            spawnPositions[idx] = object_aabb_center(obj);
+            used[idx] = true;
+            found++;
+            debugf("Spawn %d from %s => (%f, %f, %f)\n", idx + 1, obj->name,
+                   spawnPositions[idx].v[0], spawnPositions[idx].v[1], spawnPositions[idx].v[2]);
+        }
+    }
+
+    return found;
 }
