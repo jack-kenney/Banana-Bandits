@@ -2,6 +2,8 @@
 
 Banana Bandits is a Nintendo 64 homebrew arena brawler built with [libdragon](https://github.com/DragonMinded/libdragon) and [tiny3d](https://github.com/HailToDodongo/tiny3d). It was my first game design project, and it became a hands-on way to learn 3D graphics programming, asset pipelines, real-time gameplay code, and the shape of a small game engine.
 
+[Preview clip on YouTube](https://youtu.be/uIj8LrfUWTw)
+
 ## Lessons Learned
 
 - **A game loop is an engine decision, not just a `while` loop.** Early versions updated physics and rendering together every frame. That worked until frame timing started affecting movement, collision, attack windows, and input feel. The project now uses a fixed gameplay step so simulation is more predictable.
