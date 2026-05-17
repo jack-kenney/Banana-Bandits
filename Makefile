@@ -98,6 +98,7 @@ $(BUILD_DIR)/BananaBandits.elf: $(OBJS)
 
 clean:
 	rm -f $(BUILD_DIR)/* *.z64
+	rm -f $(FILESYSTEM_DIR)/*.sprite
 .PHONY: clean
 
 -include $(wildcard $(BUILD_DIR)/*.d)

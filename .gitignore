@@ -1,3 +1,4 @@
 build/
 BananaBandits.z64
 .vscode/
+filesystem/*.sprite
